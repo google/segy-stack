@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package segystack;
+
+// 3D Grid
+message Grid {
+  // Smallest inline number.
+  int32 inline_min = 1;
+
+  // Largest inline number.
+  int32 inline_max = 2;
+
+  // Inline increment.
+  int32 inline_increment = 3;
+
+  // Inline spacing.
+  float inline_spacing = 4;
+
+  // Smallest crossline number.
+  int32 crossline_min = 5;
+
+  // Largest crossline number.
+  int32 crossline_max = 6;
+
+  // Crossline increment.
+  int32 crossline_increment = 7;
+
+  // Crossline spacing.
+  float crossline_spacing = 8;
+
+  // Depth sampling interval.
+  float sampling_interval = 9;
+
+  // Number of samples in depth.
+  uint32 num_samples = 10;
+
+  enum Units {
+    METERS = 0;
+    FEET = 1;
+  }
+
+  // Unit of distance.
+  Units units = 11;
+
+  message Cell {
+    double x_coordinate = 1;
+    double y_coordinate = 2;
+    int32 inline_number = 3;
+    int32 crossline_number = 4;
+  }
+
+  // Total number of active grid cells.
+  uint64 num_active_cells = 12;
+}
+
+message UTMZone {
+  string letter = 1;
+  int32 number = 2;
+}
+
+// Header for the Stack file.
+message StackHeader {
+  // Version number
+  int32 version = 1;
+
+  // Text describing the file.
+  string description = 2;
+
+  Grid grid = 3;
+
+  message SliceMetadata {
+    string compression = 1;
+    string binary_file = 2;
+    repeated int64 offset = 3;
+    repeated int64 size = 4;
+  }
+
+  SliceMetadata inline_metadata = 4;
+  SliceMetadata crossline_metadata = 5;
+  SliceMetadata depth_metadata = 6;
+
+  // Zone within the UTM coordinate system.
+  UTMZone utm_zone = 9;
+}
