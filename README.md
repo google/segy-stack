@@ -6,7 +6,7 @@ A library with C++ and Python API to read 3D Post-stack seismic data in SEG-Y fo
 
 ``` shell
 sudo apt-get install build-essential protobuf-compiler 
-git clone sso://user/wrlewis/segy-stack
+git clone --recurse-submodules sso://user/wrlewis/segy-stack
 cd segy-stack && mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make
