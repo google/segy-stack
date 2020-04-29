@@ -11,3 +11,9 @@ cd segy-stack && mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make
 ```
+
+## License 
+
+Apache 2.0
+
+This is not an official Google product.
