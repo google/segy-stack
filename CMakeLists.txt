@@ -20,7 +20,7 @@ project (segystack VERSION 0.1)
 set(CMAKE_MACOSX_RPATH FALSE)
 set(CMAKE_CXX_STANDARD 11)
 
-set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -Wall -Wpedantic -Wextra" )
+set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC -Wall" )
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     add_compile_options(-g)
 elseif(CMAKE_BUILD_TYPE STREQUAL "Coverage")
@@ -56,6 +56,10 @@ add_subdirectory(${CMAKE_CURRENT_BINARY_DIR}/googletest-src
                  EXCLUDE_FROM_ALL)
 
 find_package(Protobuf REQUIRED)
+add_subdirectory(third_party/glog)
+set(BUILD_TESTING OFF)
+add_subdirectory(third_party/abseil-cpp)
+add_subdirectory(third_party/pybind11)
 
 file( GLOB_RECURSE segystack_HEADERS src/*.h )
 file( GLOB_RECURSE segystack_SOURCES src/*.cc )
@@ -67,19 +71,20 @@ include_directories(${CMAKE_CURRENT_BINARY_DIR})
 
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${segystack_PROTOS})
 
-add_library(${CMAKE_PROJECT_NAME} STATIC ${segystack_SOURCES} ${PROTO_SRCS} ${PROTO_HDRS})
+set(segystack_ALL_SOURCES ${segystack_SOURCES} ${PROTO_SRCS} ${PROTO_HDRS})
+
+add_library(${CMAKE_PROJECT_NAME} STATIC ${segystack_ALL_SOURCES} )
+target_link_libraries(${CMAKE_PROJECT_NAME} glog::glog)
+
+add_library(${CMAKE_PROJECT_NAME}_shared SHARED ${segystack_ALL_SOURCES} )
+set_target_properties( ${CMAKE_PROJECT_NAME}_shared PROPERTIES OUTPUT_NAME ${CMAKE_PROJECT_NAME} )
+set_target_properties( ${CMAKE_PROJECT_NAME}_shared
+                       PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION} )
+target_link_libraries(${CMAKE_PROJECT_NAME}_shared ${Protobuf_LIBRARIES} glog::glog)
 
 add_subdirectory(util)
 add_subdirectory(tests)
-add_subdirectory(third_party/abseil-cpp)
-add_subdirectory(third_party/glog)
-add_subdirectory(third_party/pybind11)
 add_subdirectory(python)
-
-add_library(${CMAKE_PROJECT_NAME}_shared SHARED ${segystack_SOURCES} ${PROTO_SRCS} ${PROTO_HDRS})
-set_target_properties( ${CMAKE_PROJECT_NAME}_shared PROPERTIES OUTPUT_NAME segystack )
-set_target_properties( ${CMAKE_PROJECT_NAME}_shared PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION} )
-target_link_libraries(${CMAKE_PROJECT_NAME}_shared ${Protobuf_LIBRARIES} glog::glog)
 
 install( TARGETS ${CMAKE_PROJECT_NAME} ${CMAKE_PROJECT_NAME}_shared
          RUNTIME DESTINATION bin

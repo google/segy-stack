@@ -17,7 +17,7 @@
 #ifndef SEGYSTACK_LOGGING_H_
 #define SEGYSTACK_LOGGING_H_
 
-#include <glog/logging.h>
+#include "glog/logging.h"
 
 #include <chrono>
 
