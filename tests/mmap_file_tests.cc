@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include <fstream>
 
 #include "gtest/gtest.h"
@@ -94,7 +93,8 @@ TEST_F(MmapFileTest, BasicOperations) {
 TEST_F(MmapFileTest, CheckTestSegy) {
   int num_samples = 7;
   int num_il = 3, num_xl = 4;
-  create_test_segy(tmp_file_, num_samples, 4, num_il, 1, num_xl, 1);
+  create_test_segy(tmp_file_, num_samples, 4, num_il, 1, num_xl, 1, 0.0f, 0.0f,
+                   1.0f, 1.0f);
 
   MmapFile fp(tmp_file_);
   ASSERT_NO_THROW(fp.open(std::ios_base::in));

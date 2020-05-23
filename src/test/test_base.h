@@ -32,6 +32,10 @@ void create_test_segy(
     int il_increment,
     int num_xl,
     int xl_increment,
+    float x_origin,
+    float y_origin,
+    float il_spacing,
+    float xl_spacing,
     const StackFile::SegyOptions& opts = StackFile::SegyOptions());
 }
 }  // namespace segystack

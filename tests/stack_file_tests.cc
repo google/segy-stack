@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include <tuple>
 
 #include "gtest/gtest.h"
@@ -33,12 +32,14 @@ class StackFileTest
     samp_int_ = std::max(num_il_, num_xl_) / std::min(num_il_, num_xl_);
     il_incr_ = std::max(num_il_, num_xl_) + std::min(num_il_, num_xl_);
     xl_incr_ = std::max(num_il_, num_xl_) - std::min(num_il_, num_xl_);
+    il_spacing_ = il_incr_ * 20.0;
+    xl_spacing_ = xl_incr_ * 10.0;
     std::string suffix = std::to_string(num_il_) + "_" +
                          std::to_string(num_xl_) + "_" +
                          std::to_string(num_samples_);
     tmp_file_ = "/tmp/segystack_stack_file_test" + suffix + ".sgy";
     create_test_segy(tmp_file_, num_samples_, samp_int_, num_il_, il_incr_,
-                     num_xl_, xl_incr_);
+                     num_xl_, xl_incr_, 0.0f, 0.0f, il_spacing_, xl_spacing_);
   }
 
   void TearDown() override { deleteFile(tmp_file_); }
@@ -47,6 +48,7 @@ class StackFileTest
   void deleteFile(const std::string& filename) { ::unlink(filename.c_str()); }
 
   int num_samples_, samp_int_, num_il_, il_incr_, num_xl_, xl_incr_;
+  float il_spacing_, xl_spacing_;
   std::string tmp_file_;
 };
 
@@ -57,10 +59,15 @@ TEST_P(StackFileTest, BasicOperations) {
   ASSERT_FLOAT_EQ(samp_int_ / 1000.0f, fp.grid().sampling_interval());
   ASSERT_EQ(num_il_, fp.getNumInlines());
   ASSERT_EQ(num_xl_, fp.getNumCrosslines());
-  if (fp.getNumInlines() > 1)
+
+  if (fp.getNumInlines() > 1) {
     ASSERT_EQ(il_incr_, fp.grid().inline_increment());
-  if (fp.getNumCrosslines() > 1)
+    ASSERT_FLOAT_EQ(il_spacing_, fp.grid().inline_spacing());
+  }
+  if (fp.getNumCrosslines() > 1) {
     ASSERT_EQ(xl_incr_, fp.grid().crossline_increment());
+    ASSERT_FLOAT_EQ(xl_spacing_, fp.grid().crossline_spacing());
+  }
 
   deleteFile(outfile);
   deleteFile(outfile + "_data");

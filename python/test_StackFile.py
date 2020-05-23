@@ -70,9 +70,9 @@ class TestStackFile:
         il_incr = 1 + int(num_ds / num_il)
         xl_incr = 1 + int(num_ds / num_xl)
         create_test_segy(sgy_file, num_ds, samp_int, num_il,
-                         il_incr, num_xl, xl_incr, opts)
+                         il_incr, num_xl, xl_incr, 0.0, 0.0, 1.0, 1.0, opts)
 
-        outfile = "out.stack"
+        outfile = "/tmp/out.stack"
         sf = StackFile(outfile, sgy_file, opts)
         self.check_stackfile(sf, opts, outfile, num_il,
                              num_xl, num_ds, samp_int, il_incr, xl_incr)
@@ -80,7 +80,8 @@ class TestStackFile:
         sf_in = StackFile(outfile)
         self.check_stackfile(sf_in, opts, outfile, num_il,
                              num_xl, num_ds, samp_int, il_incr, xl_incr)
-        
+
+        os.remove(sgy_file)
         os.remove(outfile)
         os.remove(outfile + "_data")
 

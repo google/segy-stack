@@ -29,6 +29,10 @@ void create_test_segy(const std::string& outfile,
                       int il_increment,
                       int num_xl,
                       int xl_increment,
+                      float x_origin,
+                      float y_origin,
+                      float il_spacing,
+                      float xl_spacing,
                       const StackFile::SegyOptions& opts) {
   std::ofstream ofs(outfile.c_str(),
                     std::ios_base::trunc | std::ios_base::binary);
@@ -86,6 +90,16 @@ void create_test_segy(const std::string& outfile,
           opts.getTraceHeaderOffset(StackFile::SegyOptions::CROSSLINE_NUMBER) -
           1;
       WRITE_VALUE(xl_num_addr, (xl * xl_increment));
+
+      char* x_coord_addr =
+          trace_header.data() +
+          opts.getTraceHeaderOffset(StackFile::SegyOptions::X_COORDINATE) - 1;
+      WRITE_VALUE(x_coord_addr, (x_origin + xl * xl_spacing));
+
+      char* y_coord_addr =
+          trace_header.data() +
+          opts.getTraceHeaderOffset(StackFile::SegyOptions::Y_COORDINATE) - 1;
+      WRITE_VALUE(y_coord_addr, (y_origin + il * il_spacing));
 
       ofs.write(trace_header.data(), trace_header.size());
       ofs.write(reinterpret_cast<char*>(samples.data()),

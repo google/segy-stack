@@ -35,16 +35,26 @@ ABSL_FLAG(bool, enable_depth_opt, false, "Enable fast depth slice access");
 
 using namespace segystack;
 
+void usage() {
+  std::cout << absl::ProgramUsageMessage() << std::endl;
+}
+
 int main(int argc, char* argv[]) {
   google::InitGoogleLogging(argv[0]);
   google::InstallFailureSignalHandler();
 
-  absl::SetProgramUsageMessage("segystack_convert 0.1");
+  absl::SetProgramUsageMessage(
+      absl::StrCat("Usage:\n", argv[0],
+                   " --input_file=segy_file.sgy --output_file=outfile.stack"));
   absl::ParseCommandLine(argc, argv);
 
   std::string infile;
-  if (FLAGS_input_file.IsSpecifiedOnCommandLine())
+  if (FLAGS_input_file.IsSpecifiedOnCommandLine()) {
     infile = FLAGS_input_file.Get();
+  } else {
+    usage();
+    return -1;
+  }
 
   std::string outfile = "out.stack";
   if (FLAGS_output_file.IsSpecifiedOnCommandLine())
@@ -80,6 +90,8 @@ int main(int argc, char* argv[]) {
 
   StackFile stkFile(outfile, infile, opts);
 
+  std::cout << "Num inlines: " << stkFile.getNumInlines() << std::endl;
+  std::cout << "Num crosslines: " << stkFile.getNumCrosslines() << std::endl;
   std::cout << stkFile.grid() << std::endl;
 
   if (FLAGS_enable_crossline_opt.IsSpecifiedOnCommandLine())

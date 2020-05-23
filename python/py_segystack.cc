@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include <glog/logging.h>
 
 #include <sstream>
@@ -100,34 +99,32 @@ void init_stack_file(py::module* m) {
   sf.def("num_inlines", &StackFile::getNumInlines);
   sf.def("num_crosslines", &StackFile::getNumCrosslines);
   sf.def("utm_zone", &StackFile::getUtmZone);
-  sf.def_property(
-      "inline_numbers",
-      [](const StackFile& self) {
-        py::tuple ils(self.getNumInlines());
-        for (int il = self.grid().inline_min(), idx = 0;
-             il <= self.grid().inline_max();
-             il += self.grid().inline_increment(), ++idx) {
-          ils[idx] = il;
-        }
-        return ils;
-      },
-      [](const StackFile&, const py::object&) {
-        throw py::type_error("Read only attribute");
-      });
-  sf.def_property(
-      "crossline_numbers",
-      [](const StackFile& self) {
-        py::tuple xls(self.getNumCrosslines());
-        for (int xl = self.grid().crossline_min(), idx = 0;
-             xl <= self.grid().crossline_max();
-             xl += self.grid().crossline_increment(), ++idx) {
-          xls[idx] = xl;
-        }
-        return xls;
-      },
-      [](const StackFile&, const py::object&) {
-        throw py::type_error("Read only attribute");
-      });
+  sf.def_property("inline_numbers",
+                  [](const StackFile& self) {
+                    py::tuple ils(self.getNumInlines());
+                    for (int il = self.grid().inline_min(), idx = 0;
+                         il <= self.grid().inline_max();
+                         il += self.grid().inline_increment(), ++idx) {
+                      ils[idx] = il;
+                    }
+                    return ils;
+                  },
+                  [](const StackFile&, const py::object&) {
+                    throw py::type_error("Read only attribute");
+                  });
+  sf.def_property("crossline_numbers",
+                  [](const StackFile& self) {
+                    py::tuple xls(self.getNumCrosslines());
+                    for (int xl = self.grid().crossline_min(), idx = 0;
+                         xl <= self.grid().crossline_max();
+                         xl += self.grid().crossline_increment(), ++idx) {
+                      xls[idx] = xl;
+                    }
+                    return xls;
+                  },
+                  [](const StackFile&, const py::object&) {
+                    throw py::type_error("Read only attribute");
+                  });
   sf.def("read_inline",
          [](const StackFile& self, int il,
             float fill_value) -> py::array_t<float> {
@@ -201,5 +198,11 @@ PYBIND11_MODULE(segystack, m) {
   init_stack_file(&m);
 
   py::module test_mod = m.def_submodule("test", "Testing utility methods");
-  test_mod.def("create_test_segy", &segystack::test::create_test_segy);
+  test_mod.def(
+      "create_test_segy", &segystack::test::create_test_segy,
+      "Helper function to create test SEG-Y files.", py::arg("outfile"),
+      py::arg("num_samples"), py::arg("sampling_interval"), py::arg("num_il"),
+      py::arg("il_increment"), py::arg("num_xl"), py::arg("xl_increment"),
+      py::arg("x_origin"), py::arg("y_origin"), py::arg("il_spacing"),
+      py::arg("xl_spacing"), py::arg("opts"));
 }

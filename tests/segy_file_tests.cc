@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include <tuple>
 
 #include "gtest/gtest.h"
@@ -35,8 +34,8 @@ class SegyFileTest
                          std::to_string(num_xl_) + "_" +
                          std::to_string(num_samples_);
     tmp_file_ = "/tmp/segystack_segy_file_test" + suffix + ".sgy";
-    create_test_segy(tmp_file_, num_samples_, samp_int_, num_il_, 1, num_xl_,
-                     1);
+    create_test_segy(tmp_file_, num_samples_, samp_int_, num_il_, 1, num_xl_, 1,
+                     0.0f, 0.0f, 1.0f, 1.0f);
   }
 
   void TearDown() override { ::unlink(tmp_file_.c_str()); }
