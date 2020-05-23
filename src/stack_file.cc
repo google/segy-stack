@@ -170,11 +170,9 @@ class StackFile::GridMap {
 
     Finalize();
 
-    grid_.set_inline_spacing(computeSpacing(
-        [this](size_t il, size_t xl) { return cell_map_[il + 1][xl]; }));
-
-    grid_.set_crossline_spacing(computeSpacing(
-        [this](size_t il, size_t xl) { return cell_map_[il][xl + 1]; }));
+    grid_.set_inline_spacing(computeSpacing(&GridMap::getCoordInNextInline));
+    grid_.set_crossline_spacing(
+        computeSpacing(&GridMap::getCoordInNextCrossline));
   }
 
   void Finalize() {
@@ -329,13 +327,13 @@ class StackFile::GridMap {
     return smallest_increment;
   }
 
-  float computeSpacing(
-      std::function<const Grid::Cell*(size_t, size_t)> get_next_coord) {
+  typedef const Grid::Cell*(GridMap::*GetNextCoordMethod)(size_t, size_t) const;
+  float computeSpacing(GetNextCoordMethod get_next_coord) {
     float min_spacing = std::numeric_limits<float>::max();
-    for (size_t i = 0; i < cell_map_.size() - 1; i++) {
-      for (size_t j = 0; j < cell_map_[i].size() - 1; j++) {
+    for (size_t i = 0; i < cell_map_.size(); i++) {
+      for (size_t j = 0; j < cell_map_[i].size(); j++) {
         const Grid::Cell* c1 = cell_map_[i][j];
-        const Grid::Cell* c2 = get_next_coord(i, j);
+        const Grid::Cell* c2 = (this->*get_next_coord)(i, j);
         if (c1 && c2) {
           float dist =
               std::sqrt(std::pow(c1->x_coordinate() - c2->x_coordinate(), 2.0) +
@@ -345,10 +343,27 @@ class StackFile::GridMap {
       }
     }
 
-    if (min_spacing == std::numeric_limits<float>::max()) {
+    if (min_spacing >= std::numeric_limits<float>::max()) {
       return 1.0;
     }
     return min_spacing;
+  }
+
+  const Grid::Cell* getCoordInNextInline(size_t il_idx, size_t xl_idx) const {
+    if (il_idx >= 0 && il_idx < cell_map_.size() - 1 && xl_idx >= 0 &&
+        xl_idx < cell_map_[il_idx + 1].size()) {
+      return cell_map_[il_idx + 1][xl_idx];
+    }
+    return nullptr;
+  }
+
+  const Grid::Cell* getCoordInNextCrossline(size_t il_idx,
+                                            size_t xl_idx) const {
+    if (il_idx >= 0 && il_idx < cell_map_.size() && xl_idx >= 0 &&
+        xl_idx < cell_map_[il_idx].size() - 1) {
+      return cell_map_[il_idx][xl_idx + 1];
+    }
+    return nullptr;
   }
 
   Grid grid_;
