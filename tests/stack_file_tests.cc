@@ -54,7 +54,11 @@ class StackFileTest
 
 TEST_P(StackFileTest, BasicOperations) {
   std::string outfile = tmp_file_ + ".out_stack";
-  StackFile fp(outfile, tmp_file_, StackFile::SegyOptions());
+  SegyFile segyfile(tmp_file_);
+  segyfile.open(std::ios_base::in);
+  StackFile fp(outfile, segyfile, StackFile::SegyOptions());
+  segyfile.close();
+
   ASSERT_EQ(num_samples_, fp.grid().num_samples());
   ASSERT_FLOAT_EQ(samp_int_ / 1000.0f, fp.grid().sampling_interval());
   ASSERT_EQ(num_il_, fp.getNumInlines());

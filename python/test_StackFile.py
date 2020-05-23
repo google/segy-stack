@@ -18,7 +18,7 @@ import os
 import pytest
 import hashlib
 
-from segystack import StackFile
+from segystack import StackFile, SegyFile
 from segystack.test import create_test_segy
 
 
@@ -72,8 +72,12 @@ class TestStackFile:
         create_test_segy(sgy_file, num_ds, samp_int, num_il,
                          il_incr, num_xl, xl_incr, 0.0, 0.0, 1.0, 1.0, opts)
 
+        sgy = SegyFile(sgy_file)
+        sgy.open("r")
         outfile = "/tmp/out.stack"
-        sf = StackFile(outfile, sgy_file, opts)
+        sf = StackFile(outfile, sgy, opts)
+        sgy.close()
+
         self.check_stackfile(sf, opts, outfile, num_il,
                              num_xl, num_ds, samp_int, il_incr, xl_incr)
 

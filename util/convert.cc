@@ -20,6 +20,7 @@
 
 #include <iostream>
 
+#include "segy_file.h"
 #include "stack_file.h"
 
 ABSL_FLAG(std::string, input_file, "", "Input SEGY file");
@@ -88,7 +89,12 @@ int main(int argc, char* argv[]) {
 
   std::cout << "convert options: " << std::endl << opts << std::endl;
 
-  StackFile stkFile(outfile, infile, opts);
+  SegyFile segyfile(infile);
+  segyfile.open(std::ios_base::in);
+
+  StackFile stkFile(outfile, segyfile, opts);
+
+  segyfile.close();
 
   std::cout << "Num inlines: " << stkFile.getNumInlines() << std::endl;
   std::cout << "Num crosslines: " << stkFile.getNumCrosslines() << std::endl;

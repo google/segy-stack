@@ -129,9 +129,15 @@ class SegyFile {
     std::vector<float> samples_;
   };
 
-  SegyFile(const std::string& filename);
+  explicit SegyFile(const std::string& filename);
 
   void open(std::ios_base::openmode mode = std::ios_base::in);
+
+  std::ios_base::openmode open_mode() const { return mode_; }
+
+  bool is_open() const { return file_->is_open(); }
+
+  const std::string& name() const { return file_->name(); }
 
   void close();
 
@@ -143,12 +149,12 @@ class SegyFile {
 
   // advances both the trace header and sample pointers
   // to the offset from the beginning of the file.
-  void seek(std::uint64_t offset);
+  void seek(std::uint64_t offset) const;
 
   // reads a Trace but does not advance the internal trace
   // pointer to the next trace header. Must seek to the correct offset
   // before calling this method
-  bool read(Trace& trace);
+  bool read(Trace& trace) const;
 
  protected:
   void checkFileOpened() const;

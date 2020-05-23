@@ -169,16 +169,17 @@ void SegyFile::close() {
   file_->close();
 }
 
-void SegyFile::seek(std::uint64_t offset) {
+void SegyFile::seek(std::uint64_t offset) const {
   checkFileOpened();
+  SegyFile* self = const_cast<SegyFile*>(this);
 
-  hdr_ptr_ = first_hdr_ptr_ + offset * (sizeof(Trace::Header) +
+  self->hdr_ptr_ = first_hdr_ptr_ + offset * (sizeof(Trace::Header) +
                                         sizeof(float) * num_samples_per_trc_);
-  trc_ptr_ = hdr_ptr_ + sizeof(Trace::Header);
-  cur_offset_ = offset;
+  self->trc_ptr_ = hdr_ptr_ + sizeof(Trace::Header);
+  self->cur_offset_ = offset;
 }
 
-bool SegyFile::read(Trace& trace) {
+bool SegyFile::read(Trace& trace) const {
   checkFileOpened();
 
   Trace::Header& header = trace.header();

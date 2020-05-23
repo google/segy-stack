@@ -19,6 +19,7 @@
 #include "pybind11/numpy.h"
 #include "pybind11/pybind11.h"
 #include "pybind11/stl.h"
+#include "segy_file.h"
 #include "stack_file.h"
 #include "test/test_base.h"
 
@@ -89,10 +90,26 @@ void init_types(py::module* m) {
   });
 }
 
+void init_segy_file(py::module* m) {
+  py::class_<SegyFile> sgy(*m, "SegyFile");
+
+  sgy.def(py::init<const std::string&>());
+  sgy.def("open", [](SegyFile& self, const std::string &mode) {
+    std::ios_base::openmode open_mode;
+    if (mode.find('r') != std::string::npos)
+      open_mode |= std::ios_base::in;
+    if (mode.find('w') != std::string::npos)
+      open_mode |= std::ios_base::out;
+    self.open(open_mode);
+  });
+  sgy.def("name", &SegyFile::name);
+  sgy.def("close", &SegyFile::close);
+}
+
 void init_stack_file(py::module* m) {
   py::class_<StackFile> sf(*m, "StackFile");
 
-  sf.def(py::init<const std::string&, const std::string&,
+  sf.def(py::init<const std::string&, const SegyFile&,
                   const StackFile::SegyOptions&>());
   sf.def(py::init<const std::string&>());
   sf.def("grid", &StackFile::grid, py::return_value_policy::reference);
@@ -195,6 +212,7 @@ PYBIND11_MODULE(segystack, m) {
 
   m.doc() = "segystack python interface";
   init_types(&m);
+  init_segy_file(&m);
   init_stack_file(&m);
 
   py::module test_mod = m.def_submodule("test", "Testing utility methods");

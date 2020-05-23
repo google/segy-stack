@@ -504,17 +504,18 @@ StackFile::StackFile(const std::string& filename) : filename_(filename) {
 }
 
 StackFile::StackFile(const std::string& filename,
-                     const std::string& segy_filename,
+                     const SegyFile& segyfile,
                      const SegyOptions& opts) {
   TIMEIT;
-  SegyFile segy(segy_filename);
-  segy.open(std::ios_base::in);
+  if (!segyfile.is_open() || !(segyfile.open_mode() & std::ios_base::in)) {
+    throw std::runtime_error("SegyFile " + segyfile.name() + " not opened for reading!");
+  }
 
-  const SegyFile::BinaryHeader& binary_header = segy.getBinaryHeader();
+  const SegyFile::BinaryHeader& binary_header = segyfile.getBinaryHeader();
 
   header_.reset(new StackHeader());
   header_->set_version(kStackFileVersion);
-  header_->set_description(segy.getTextHeader().toString());
+  header_->set_description(segyfile.getTextHeader().toString());
   Grid* grid = header_->mutable_grid();
 
   grid->set_num_samples(
@@ -548,7 +549,7 @@ StackFile::StackFile(const std::string& filename,
 
   grid_map_.reset(new GridMap(*grid));
 
-  while (segy.read(trace)) {
+  while (segyfile.read(trace)) {
     CHECK_EQ(grid->num_samples(), trace.samples().size());
     const SegyFile::Trace::Header& header = trace.header();
 
@@ -570,7 +571,7 @@ StackFile::StackFile(const std::string& filename,
     ++num_traces_read;
     LOG_EVERY_N(INFO, 100000)
         << google::COUNTER << " traces read." << std::endl;
-    segy.seek(num_traces_read);
+    segyfile.seek(num_traces_read);
   }
   LOG(INFO) << num_traces_read << " traces read" << std::endl;
   inline_bin_file.close();
@@ -625,7 +626,6 @@ StackFile::StackFile(const std::string& filename,
   }
 
   hdr_fp.close();
-  segy.close();
 
   initialize();
 }

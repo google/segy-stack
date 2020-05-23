@@ -21,6 +21,7 @@
 #include <string>
 
 #include "mmap_file.h"
+#include "segy_file.h"
 #include "stack_types.pb.h"
 
 namespace segystack {
@@ -51,11 +52,14 @@ class StackFile {
     std::map<TraceHeaderAttribute, int> offsets_;
   };
 
-  StackFile(const std::string& filename);
+  explicit StackFile(const std::string& filename);
 
-  StackFile(const std::string& filename,
-            const std::string& segy_filename,
-            const SegyOptions& opts);
+  explicit StackFile(const std::string& filename,
+                     const SegyFile& segyfile,
+                     const SegyOptions& opts);
+
+  explicit StackFile(const SegyFile& segyfile,
+                     const SegyOptions& opts);
 
   const Grid& grid() const;
 
