@@ -91,44 +91,46 @@ class TestStackFile:
 
     def check_stackfile(self, sf, opts, outfile, num_il, num_xl, num_ds, samp_int, il_incr, xl_incr):
 
-        if (sf.num_inlines() > 1):
+        if (sf.grid().num_inlines > 1):
             assert(sf.grid().inline_increment == il_incr)
 
-        il_nums = set(sf.inline_numbers)
+        il_nums = set(sf.grid().inline_numbers)
         for il in range(sf.grid().inline_min, sf.grid().inline_max+1, sf.grid().inline_increment):
             assert(il in il_nums)
         with pytest.raises(TypeError):
-            sf.inline_numbers = (10, 20)
+            sf.grid().inline_numbers = (10, 20)
 
-        if (sf.num_crosslines() > 1):
+        if (sf.grid().num_crosslines > 1):
             assert(sf.grid().crossline_increment == xl_incr)
 
-        xl_nums = set(sf.crossline_numbers)
+        xl_nums = set(sf.grid().crossline_numbers)
         for xl in range(sf.grid().crossline_min, sf.grid().crossline_max+1, sf.grid().crossline_increment):
             assert(xl in xl_nums)
         with pytest.raises(TypeError):
-            sf.crossline_numbers = (10, 20)
+            sf.grid().crossline_numbers = (10, 20)
 
-        utm_zone = sf.utm_zone()
+        utm_zone = sf.grid().utm_zone()
         assert(utm_zone.letter == opts.utm_zone().letter)
         assert(utm_zone.number == opts.utm_zone().number)
-        assert(sf.num_inlines() == num_il)
-        assert(sf.num_crosslines() == num_xl)
+        assert(sf.grid().num_inlines == num_il)
+        assert(sf.grid().num_crosslines == num_xl)
+        assert(sf.grid().num_samples == num_ds)
+        assert(abs(sf.grid().sampling_interval - samp_int/1000.0) < 1e-4)
 
         il_data = sf.read_inline(
-            sf.inline_numbers[int(sf.num_inlines()/2)], 0.0)
+            sf.grid().inline_numbers[int(sf.grid().num_inlines/2)], 0.0)
         assert(il_data.shape == (num_xl, num_ds))
 
         sf.set_crossline_access_opt(True)
         xl_data1 = sf.read_crossline(
-            sf.crossline_numbers[int(sf.num_crosslines()/2)], 0.0)
+            sf.grid().crossline_numbers[int(sf.grid().num_crosslines/2)], 0.0)
         assert(xl_data1.shape == (num_il, num_ds))
         sf.set_crossline_access_opt(False)
 
         with pytest.raises(IOError):
             open(outfile + "_data_xline", "r")
         xl_data2 = sf.read_crossline(
-            sf.crossline_numbers[int(sf.num_crosslines()/2)], 0.0)
+            sf.grid().crossline_numbers[int(sf.grid().num_crosslines/2)], 0.0)
         assert(xl_data2.shape == (num_il, num_ds))
 
         assert(hash_data(xl_data1) == hash_data(xl_data2))

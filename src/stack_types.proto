@@ -15,7 +15,7 @@
 
 syntax = "proto3";
 
-package segystack;
+package segystack.internal;
 
 // 3D Grid
 message Grid {

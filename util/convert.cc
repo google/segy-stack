@@ -96,8 +96,6 @@ int main(int argc, char* argv[]) {
 
   segyfile.close();
 
-  std::cout << "Num inlines: " << stkFile.getNumInlines() << std::endl;
-  std::cout << "Num crosslines: " << stkFile.getNumCrosslines() << std::endl;
   std::cout << stkFile.grid() << std::endl;
 
   if (FLAGS_enable_crossline_opt.IsSpecifiedOnCommandLine())

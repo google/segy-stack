@@ -28,55 +28,6 @@ using namespace py::literals;
 using namespace segystack;
 
 void init_types(py::module* m) {
-  py::class_<Grid> grid(*m, "Grid");
-  grid.def(py::init<>());
-  grid.def_property("inline_min", &Grid::inline_min, &Grid::set_inline_min);
-  grid.def_property("inline_max", &Grid::inline_max, &Grid::set_inline_max);
-  grid.def_property("inline_increment", &Grid::inline_increment,
-                    &Grid::set_inline_increment);
-  grid.def_property("inline_spacing", &Grid::inline_spacing,
-                    &Grid::set_inline_spacing);
-  grid.def_property("crossline_min", &Grid::crossline_min,
-                    &Grid::set_crossline_min);
-  grid.def_property("crossline_max", &Grid::crossline_max,
-                    &Grid::set_crossline_max);
-  grid.def_property("crossline_increment", &Grid::crossline_increment,
-                    &Grid::set_crossline_increment);
-  grid.def_property("crossline_spacing", &Grid::crossline_spacing,
-                    &Grid::set_crossline_spacing);
-  grid.def_property("sampling_interval", &Grid::sampling_interval,
-                    &Grid::set_sampling_interval);
-  grid.def_property("num_samples", &Grid::num_samples, &Grid::set_num_samples);
-  grid.def_property("units", &Grid::units, &Grid::set_units);
-  grid.def_property("num_active_cells", &Grid::num_active_cells,
-                    &Grid::set_num_active_cells);
-  grid.def("__repr__", [](const Grid& grid) {
-    std::ostringstream ostr;
-    ostr << grid;
-    return ostr.str();
-  });
-
-  py::enum_<Grid::Units>(grid, "Units")
-      .value("METERS", Grid::METERS)
-      .value("FEET", Grid::FEET)
-      .export_values();
-
-  py::class_<Grid::Cell> cell(grid, "Cell");
-  cell.def(py::init<>());
-  cell.def_property("x_coordinate", &Grid::Cell::x_coordinate,
-                    &Grid::Cell::set_x_coordinate);
-  cell.def_property("y_coordinate", &Grid::Cell::y_coordinate,
-                    &Grid::Cell::set_y_coordinate);
-  cell.def_property("inline_number", &Grid::Cell::inline_number,
-                    &Grid::Cell::set_inline_number);
-  cell.def_property("crossline_number", &Grid::Cell::crossline_number,
-                    &Grid::Cell::set_crossline_number);
-  cell.def("__repr__", [](const Grid::Cell& cell) {
-    std::ostringstream ostr;
-    ostr << cell;
-    return ostr.str();
-  });
-
   py::class_<UTMZone> utm(*m, "UTMZone");
   utm.def(py::init<>());
   utm.def_property("number", &UTMZone::number, &UTMZone::set_number);
@@ -94,7 +45,7 @@ void init_segy_file(py::module* m) {
   py::class_<SegyFile> sgy(*m, "SegyFile");
 
   sgy.def(py::init<const std::string&>());
-  sgy.def("open", [](SegyFile& self, const std::string &mode) {
+  sgy.def("open", [](SegyFile& self, const std::string& mode) {
     std::ios_base::openmode open_mode;
     if (mode.find('r') != std::string::npos)
       open_mode |= std::ios_base::in;
@@ -112,41 +63,12 @@ void init_stack_file(py::module* m) {
   sf.def(py::init<const std::string&, const SegyFile&,
                   const StackFile::SegyOptions&>());
   sf.def(py::init<const std::string&>());
-  sf.def("grid", &StackFile::grid, py::return_value_policy::reference);
-  sf.def("num_inlines", &StackFile::getNumInlines);
-  sf.def("num_crosslines", &StackFile::getNumCrosslines);
-  sf.def("utm_zone", &StackFile::getUtmZone);
-  sf.def_property("inline_numbers",
-                  [](const StackFile& self) {
-                    py::tuple ils(self.getNumInlines());
-                    for (int il = self.grid().inline_min(), idx = 0;
-                         il <= self.grid().inline_max();
-                         il += self.grid().inline_increment(), ++idx) {
-                      ils[idx] = il;
-                    }
-                    return ils;
-                  },
-                  [](const StackFile&, const py::object&) {
-                    throw py::type_error("Read only attribute");
-                  });
-  sf.def_property("crossline_numbers",
-                  [](const StackFile& self) {
-                    py::tuple xls(self.getNumCrosslines());
-                    for (int xl = self.grid().crossline_min(), idx = 0;
-                         xl <= self.grid().crossline_max();
-                         xl += self.grid().crossline_increment(), ++idx) {
-                      xls[idx] = xl;
-                    }
-                    return xls;
-                  },
-                  [](const StackFile&, const py::object&) {
-                    throw py::type_error("Read only attribute");
-                  });
+  sf.def("grid", &StackFile::grid, py::return_value_policy::move);
   sf.def("read_inline",
          [](const StackFile& self, int il,
             float fill_value) -> py::array_t<float> {
            py::array::ShapeContainer shape(
-               {self.getNumCrosslines(), self.grid().num_samples()});
+               {self.grid().numCrosslines(), self.grid().numSamples()});
            py::array_t<float> data(shape);
            float* buffer = data.mutable_data();
            self.readInline(il, buffer, data.size(), fill_value);
@@ -156,7 +78,7 @@ void init_stack_file(py::module* m) {
          [](const StackFile& self, int xl,
             float fill_value) -> py::array_t<float> {
            py::array::ShapeContainer shape(
-               {self.getNumInlines(), self.grid().num_samples()});
+               {self.grid().numInlines(), self.grid().numSamples()});
            py::array_t<float> data(shape);
            float* buffer = data.mutable_data();
            self.readCrossline(xl, buffer, data.size(), fill_value);
@@ -166,7 +88,7 @@ void init_stack_file(py::module* m) {
          [](const StackFile& self, int sample_index,
             float fill_value) -> py::array_t<float> {
            py::array::ShapeContainer shape(
-               {self.getNumInlines(), self.getNumCrosslines()});
+               {self.grid().numInlines(), self.grid().numCrosslines()});
            py::array_t<float> data(shape);
            float* buffer = data.mutable_data();
            self.readDepthSlice(sample_index, buffer, data.size(), fill_value);
@@ -176,6 +98,72 @@ void init_stack_file(py::module* m) {
          &StackFile::setCrosslineAccessOptimization);
   sf.def("set_depth_slice_access_opt",
          &StackFile::setDepthSliceAccessOptimization);
+
+  py::class_<StackFile::Grid> grid(sf, "Grid");
+  grid.def(py::init<>());
+  grid.def("utm_zone", &StackFile::Grid::utmZone);
+  grid.def_property("inline_min", &StackFile::Grid::inlineMin,
+                    &StackFile::Grid::setInlineMin);
+  grid.def_property("inline_max", &StackFile::Grid::inlineMax,
+                    &StackFile::Grid::setInlineMax);
+  grid.def_property("inline_increment", &StackFile::Grid::inlineIncrement,
+                    &StackFile::Grid::setInlineIncrement);
+  grid.def_property("inline_spacing", &StackFile::Grid::inlineSpacing,
+                    &StackFile::Grid::setInlineSpacing);
+  grid.def_property("crossline_min", &StackFile::Grid::crosslineMin,
+                    &StackFile::Grid::setCrosslineMin);
+  grid.def_property("crossline_max", &StackFile::Grid::crosslineMax,
+                    &StackFile::Grid::setCrosslineMax);
+  grid.def_property("crossline_increment", &StackFile::Grid::crosslineIncrement,
+                    &StackFile::Grid::setCrosslineIncrement);
+  grid.def_property("crossline_spacing", &StackFile::Grid::crosslineSpacing,
+                    &StackFile::Grid::setCrosslineSpacing);
+  grid.def_property("num_inlines", &StackFile::Grid::numInlines,
+                    &StackFile::Grid::setNumInlines);
+  grid.def_property("num_crosslines", &StackFile::Grid::numCrosslines,
+                    &StackFile::Grid::setNumCrosslines);
+  grid.def_property("sampling_interval", &StackFile::Grid::samplingInterval,
+                    &StackFile::Grid::setSamplingInterval);
+  grid.def_property("num_samples", &StackFile::Grid::numSamples,
+                    &StackFile::Grid::setNumSamples);
+  grid.def_property("units", &StackFile::Grid::units,
+                    &StackFile::Grid::setUnits);
+  grid.def_property("inline_numbers",
+                    [](const StackFile::Grid& self) {
+                      py::tuple ils(self.numInlines());
+                      for (int il = self.inlineMin(), idx = 0;
+                           il <= self.inlineMax();
+                           il += self.inlineIncrement(), ++idx) {
+                        ils[idx] = il;
+                      }
+                      return ils;
+                    },
+                    [](const StackFile::Grid&, const py::object&) {
+                      throw py::type_error("Read only attribute");
+                    });
+  grid.def_property("crossline_numbers",
+                    [](const StackFile::Grid& self) {
+                      py::tuple xls(self.numCrosslines());
+                      for (int xl = self.crosslineMin(), idx = 0;
+                           xl <= self.crosslineMax();
+                           xl += self.crosslineIncrement(), ++idx) {
+                        xls[idx] = xl;
+                      }
+                      return xls;
+                    },
+                    [](const StackFile::Grid&, const py::object&) {
+                      throw py::type_error("Read only attribute");
+                    });
+  grid.def("__repr__", [](const StackFile::Grid& grid) {
+    std::ostringstream ostr;
+    ostr << grid;
+    return ostr.str();
+  });
+
+  py::enum_<StackFile::Grid::Units>(grid, "Units")
+      .value("METERS", StackFile::Grid::METERS)
+      .value("FEET", StackFile::Grid::FEET)
+      .export_values();
 
   py::class_<StackFile::SegyOptions> opts(sf, "SegyOptions");
   opts.def(py::init<>());

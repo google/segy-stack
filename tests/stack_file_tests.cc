@@ -59,18 +59,18 @@ TEST_P(StackFileTest, BasicOperations) {
   StackFile fp(outfile, segyfile, StackFile::SegyOptions());
   segyfile.close();
 
-  ASSERT_EQ(num_samples_, fp.grid().num_samples());
-  ASSERT_FLOAT_EQ(samp_int_ / 1000.0f, fp.grid().sampling_interval());
-  ASSERT_EQ(num_il_, fp.getNumInlines());
-  ASSERT_EQ(num_xl_, fp.getNumCrosslines());
+  ASSERT_EQ(num_samples_, fp.grid().numSamples());
+  ASSERT_FLOAT_EQ(samp_int_ / 1000.0f, fp.grid().samplingInterval());
+  ASSERT_EQ(num_il_, fp.grid().numInlines());
+  ASSERT_EQ(num_xl_, fp.grid().numCrosslines());
 
-  if (fp.getNumInlines() > 1) {
-    ASSERT_EQ(il_incr_, fp.grid().inline_increment());
-    ASSERT_FLOAT_EQ(il_spacing_, fp.grid().inline_spacing());
+  if (fp.grid().numInlines() > 1) {
+    ASSERT_EQ(il_incr_, fp.grid().inlineIncrement());
+    ASSERT_FLOAT_EQ(il_spacing_, fp.grid().inlineSpacing());
   }
-  if (fp.getNumCrosslines() > 1) {
-    ASSERT_EQ(xl_incr_, fp.grid().crossline_increment());
-    ASSERT_FLOAT_EQ(xl_spacing_, fp.grid().crossline_spacing());
+  if (fp.grid().numCrosslines() > 1) {
+    ASSERT_EQ(xl_incr_, fp.grid().crosslineIncrement());
+    ASSERT_FLOAT_EQ(xl_spacing_, fp.grid().crosslineSpacing());
   }
 
   deleteFile(outfile);

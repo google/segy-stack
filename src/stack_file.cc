@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include "stack_file.h"
 
 #include <glog/logging.h>
@@ -28,7 +27,10 @@
 #include "logging.h"
 #include "segy_file.h"
 
-std::ostream& operator<<(std::ostream& os, const segystack::Grid& grid) {
+namespace segystack {
+
+std::ostream& operator<<(std::ostream& os,
+                         const segystack::internal::Grid& grid) {
   os << "IL range : " << grid.inline_min() << " - " << grid.inline_max()
      << std::endl;
   os << "XL range : " << grid.crossline_min() << " - " << grid.crossline_max()
@@ -41,10 +43,10 @@ std::ostream& operator<<(std::ostream& os, const segystack::Grid& grid) {
   os << "Num depth samples : " << grid.num_samples() << std::endl;
   os << "Units : ";
   switch (grid.units()) {
-    case segystack::Grid::METERS:
+    case segystack::internal::Grid::METERS:
       os << "Meters";
       break;
-    case segystack::Grid::FEET:
+    case segystack::internal::Grid::FEET:
       os << "Feet";
       break;
     default:
@@ -55,7 +57,17 @@ std::ostream& operator<<(std::ostream& os, const segystack::Grid& grid) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const segystack::Grid::Cell& cell) {
+std::ostream& operator<<(std::ostream& os,
+                         const segystack::StackFile::Grid& grid) {
+  os << "IL num: " << grid.numInlines() << std::endl;
+  os << "XL num: " << grid.numCrosslines() << std::endl;
+  os << grid.grid_data_;
+  os << "UTM Zone: " << grid.utm_zone_ << std::endl;
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const segystack::internal::Grid::Cell& cell) {
   os << "Coordinate (x, y) : (" << cell.x_coordinate() << ", "
      << cell.y_coordinate() << ")" << std::endl;
   os << "Grid numbers (IL, XL) : (" << cell.inline_number() << ", "
@@ -63,7 +75,8 @@ std::ostream& operator<<(std::ostream& os, const segystack::Grid::Cell& cell) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const segystack::UTMZone& utm) {
+std::ostream& operator<<(std::ostream& os,
+                         const segystack::internal::UTMZone& utm) {
   os << utm.number() << " " << utm.letter();
   return os;
 }
@@ -82,8 +95,6 @@ std::ostream& operator<<(std::ostream& os,
      << opts.getTraceHeaderOffset(SegyOptions::Y_COORDINATE) << std::endl;
   return os;
 }
-
-namespace segystack {
 
 constexpr char kStackFileMagic[] = "**StackFile**\n";
 constexpr int kStackFileVersion = 1;
@@ -137,10 +148,10 @@ class StackFile::GridMap {
  public:
   GridMap() {}
 
-  GridMap(const Grid& grid) : grid_(grid) {}
+  GridMap(const internal::Grid& grid) : grid_(grid) {}
 
-  Grid::Cell* addCell() {
-    cells_.push_back(Grid::Cell());
+  internal::Grid::Cell* addCell() {
+    cells_.push_back(internal::Grid::Cell());
     return &(cells_.back());
   }
 
@@ -150,7 +161,7 @@ class StackFile::GridMap {
     grid_.set_inline_max(std::numeric_limits<int>::min());
     grid_.set_crossline_max(std::numeric_limits<int>::min());
 
-    for (const Grid::Cell& cell : cells_) {
+    for (const internal::Grid::Cell& cell : cells_) {
       grid_.set_inline_min(std::min(grid_.inline_min(), cell.inline_number()));
       grid_.set_crossline_min(
           std::min(grid_.crossline_min(), cell.crossline_number()));
@@ -162,11 +173,13 @@ class StackFile::GridMap {
 
     grid_.set_inline_increment(computeIncrement(
         grid_.inline_min(), grid_.inline_max(),
-        [](const Grid::Cell& cell) { return cell.inline_number(); }));
+        [](const internal::Grid::Cell& cell) { return cell.inline_number(); }));
 
-    grid_.set_crossline_increment(computeIncrement(
-        grid_.crossline_min(), grid_.crossline_max(),
-        [](const Grid::Cell& cell) { return cell.crossline_number(); }));
+    grid_.set_crossline_increment(
+        computeIncrement(grid_.crossline_min(), grid_.crossline_max(),
+                         [](const internal::Grid::Cell& cell) {
+                           return cell.crossline_number();
+                         }));
 
     Finalize();
 
@@ -181,7 +194,7 @@ class StackFile::GridMap {
       cell_map_[i].resize(getNumCrosslines(), nullptr);
     }
 
-    for (const Grid::Cell& cell : cells_) {
+    for (const internal::Grid::Cell& cell : cells_) {
       int il_idx = getInlineIdx(cell.inline_number());
       int xl_idx = getCrosslineIdx(cell.crossline_number());
       cell_map_[il_idx][xl_idx] = &cell;
@@ -231,9 +244,9 @@ class StackFile::GridMap {
   int getInlineIncrement() const { return grid_.inline_increment(); }
   int getCrosslineIncrement() const { return grid_.crossline_increment(); }
 
-  const Grid& grid() const { return grid_; }
+  const internal::Grid& grid() const { return grid_; }
 
-  const std::vector<Grid::Cell>& cells() const { return cells_; }
+  const std::vector<internal::Grid::Cell>& cells() const { return cells_; }
 
   bool isCellActive(int il, int xl) const {
     try {
@@ -297,9 +310,10 @@ class StackFile::GridMap {
   }
 
  private:
-  int computeIncrement(int min_value,
-                       int max_value,
-                       std::function<int(const Grid::Cell&)> line_number) {
+  int computeIncrement(
+      int min_value,
+      int max_value,
+      std::function<int(const internal::Grid::Cell&)> line_number) {
     if (min_value == max_value) {
       return 1;
     }
@@ -327,13 +341,14 @@ class StackFile::GridMap {
     return smallest_increment;
   }
 
-  typedef const Grid::Cell*(GridMap::*GetNextCoordMethod)(size_t, size_t) const;
+  typedef const internal::Grid::Cell* (
+      GridMap::*GetNextCoordMethod)(size_t, size_t) const;
   float computeSpacing(GetNextCoordMethod get_next_coord) {
     float min_spacing = std::numeric_limits<float>::max();
     for (size_t i = 0; i < cell_map_.size(); i++) {
       for (size_t j = 0; j < cell_map_[i].size(); j++) {
-        const Grid::Cell* c1 = cell_map_[i][j];
-        const Grid::Cell* c2 = (this->*get_next_coord)(i, j);
+        const internal::Grid::Cell* c1 = cell_map_[i][j];
+        const internal::Grid::Cell* c2 = (this->*get_next_coord)(i, j);
         if (c1 && c2) {
           float dist =
               std::sqrt(std::pow(c1->x_coordinate() - c2->x_coordinate(), 2.0) +
@@ -349,7 +364,8 @@ class StackFile::GridMap {
     return min_spacing;
   }
 
-  const Grid::Cell* getCoordInNextInline(size_t il_idx, size_t xl_idx) const {
+  const internal::Grid::Cell* getCoordInNextInline(size_t il_idx,
+                                                   size_t xl_idx) const {
     if (il_idx >= 0 && il_idx < cell_map_.size() - 1 && xl_idx >= 0 &&
         xl_idx < cell_map_[il_idx + 1].size()) {
       return cell_map_[il_idx + 1][xl_idx];
@@ -357,8 +373,8 @@ class StackFile::GridMap {
     return nullptr;
   }
 
-  const Grid::Cell* getCoordInNextCrossline(size_t il_idx,
-                                            size_t xl_idx) const {
+  const internal::Grid::Cell* getCoordInNextCrossline(size_t il_idx,
+                                                      size_t xl_idx) const {
     if (il_idx >= 0 && il_idx < cell_map_.size() && xl_idx >= 0 &&
         xl_idx < cell_map_[il_idx].size() - 1) {
       return cell_map_[il_idx][xl_idx + 1];
@@ -366,18 +382,154 @@ class StackFile::GridMap {
     return nullptr;
   }
 
-  Grid grid_;
-  std::vector<Grid::Cell> cells_;
-  std::vector<std::vector<const Grid::Cell*>> cell_map_;
+  internal::Grid grid_;
+  std::vector<internal::Grid::Cell> cells_;
+  std::vector<std::vector<const internal::Grid::Cell*>> cell_map_;
   std::unordered_map<int, int> active_il_index_map_, active_xl_index_map_;
   std::vector<std::vector<const float*>> trace_map_;
 };
 
-void StackFile::computeInlineMetadata(StackHeader::SliceMetadata* il_metadata) {
+StackFile::Grid::Grid() {
+  grid_data_.set_inline_min(0);
+  grid_data_.set_inline_max(0);
+  grid_data_.set_inline_increment(1);
+  grid_data_.set_crossline_min(0);
+  grid_data_.set_crossline_max(0);
+  grid_data_.set_crossline_increment(1);
+}
+
+StackFile::Grid::~Grid() = default;
+
+uint32_t StackFile::Grid::numInlines() const {
+  CHECK_GT(grid_data_.inline_increment(), 0);
+  return ((grid_data_.inline_max() - grid_data_.inline_min()) /
+          grid_data_.inline_increment()) +
+         1;
+}
+
+void StackFile::Grid::setNumInlines(uint32_t value) {
+  grid_data_.set_inline_max(grid_data_.inline_min() +
+                            (value - 1) * grid_data_.inline_increment());
+}
+
+uint32_t StackFile::Grid::numCrosslines() const {
+  CHECK_GT(grid_data_.crossline_increment(), 0);
+  return std::abs((grid_data_.crossline_max() - grid_data_.crossline_min()) /
+                  grid_data_.crossline_increment()) +
+         1;
+}
+
+void StackFile::Grid::setNumCrosslines(uint32_t value) {
+  grid_data_.set_crossline_max(grid_data_.crossline_min() +
+                               (value - 1) * grid_data_.crossline_increment());
+}
+
+const UTMZone& StackFile::Grid::utmZone() const {
+  return utm_zone_;
+}
+
+StackFile::Grid::Units StackFile::Grid::units() const {
+  return static_cast<Units>(grid_data_.units());
+}
+
+void StackFile::Grid::setUnits(StackFile::Grid::Units value) {
+  grid_data_.set_units(static_cast<internal::Grid_Units>(value));
+}
+
+int32_t StackFile::Grid::inlineMin() const {
+  return grid_data_.inline_min();
+}
+
+void StackFile::Grid::setInlineMin(int32_t value) {
+  grid_data_.set_inline_min(value);
+}
+
+int32_t StackFile::Grid::inlineMax() const {
+  return grid_data_.inline_max();
+}
+
+void StackFile::Grid::setInlineMax(int32_t value) {
+  CHECK_GE(value, grid_data_.inline_min());
+  grid_data_.set_inline_max(value);
+}
+
+uint32_t StackFile::Grid::inlineIncrement() const {
+  return grid_data_.inline_increment();
+}
+
+void StackFile::Grid::setInlineIncrement(uint32_t value) {
+  CHECK_GT(value, 0u);
+  grid_data_.set_inline_increment(value);
+}
+
+float StackFile::Grid::inlineSpacing() const {
+  return grid_data_.inline_spacing();
+}
+
+void StackFile::Grid::setInlineSpacing(float value) {
+  CHECK_GT(value, 0.0f);
+  grid_data_.set_inline_spacing(value);
+}
+
+int32_t StackFile::Grid::crosslineMin() const {
+  return grid_data_.crossline_min();
+}
+
+void StackFile::Grid::setCrosslineMin(int32_t value) {
+  grid_data_.set_crossline_min(value);
+}
+
+int32_t StackFile::Grid::crosslineMax() const {
+  return grid_data_.crossline_max();
+}
+
+void StackFile::Grid::setCrosslineMax(int32_t value) {
+  CHECK_GE(value, grid_data_.crossline_min());
+  grid_data_.set_crossline_max(value);
+}
+
+uint32_t StackFile::Grid::crosslineIncrement() const {
+  return grid_data_.crossline_increment();
+}
+
+void StackFile::Grid::setCrosslineIncrement(uint32_t value) {
+  CHECK_GT(value, 0u);
+  grid_data_.set_crossline_increment(value);
+}
+
+float StackFile::Grid::crosslineSpacing() const {
+  return grid_data_.crossline_spacing();
+}
+
+void StackFile::Grid::setCrosslineSpacing(float value) {
+  CHECK_GT(value, 0.0f);
+  grid_data_.set_crossline_spacing(value);
+}
+
+float StackFile::Grid::samplingInterval() const {
+  return grid_data_.sampling_interval();
+}
+
+void StackFile::Grid::setSamplingInterval(float value) {
+  CHECK_GT(value, 0.0f);
+  grid_data_.set_sampling_interval(value);
+}
+
+uint32_t StackFile::Grid::numSamples() const {
+  return grid_data_.num_samples();
+}
+
+void StackFile::Grid::setNumSamples(uint32_t value) {
+  CHECK_GT(value, 0u);
+  grid_data_.set_num_samples(value);
+}
+
+void StackFile::computeInlineMetadata(
+    internal::StackHeader::SliceMetadata* il_metadata) {
   CHECK_NOTNULL(grid_map_);
 
   size_t num_bytes_written = 0;
-  const Grid& grid = grid_map_->grid();
+  const internal::Grid& grid = grid_map_->grid();
 
   for (int il = grid.inline_min(); il <= grid.inline_max();
        il += grid.inline_increment()) {
@@ -399,11 +551,11 @@ void StackFile::computeInlineMetadata(StackHeader::SliceMetadata* il_metadata) {
 }
 
 void StackFile::computeCrosslineMetadata(
-    StackHeader::SliceMetadata* xl_metadata) {
+    internal::StackHeader::SliceMetadata* xl_metadata) {
   CHECK_NOTNULL(grid_map_);
 
   size_t num_bytes_written = 0;
-  const Grid& grid = grid_map_->grid();
+  const internal::Grid& grid = grid_map_->grid();
 
   for (int xl = grid.crossline_min(); xl <= grid.crossline_max();
        xl += grid.crossline_increment()) {
@@ -426,11 +578,11 @@ void StackFile::computeCrosslineMetadata(
 }
 
 void StackFile::computeDepthSliceMetadata(
-    StackHeader::SliceMetadata* depth_metadata) {
+    internal::StackHeader::SliceMetadata* depth_metadata) {
   CHECK_NOTNULL(grid_map_);
 
   size_t depth_slice_bytes = 0;
-  const Grid& grid = grid_map_->grid();
+  const internal::Grid& grid = grid_map_->grid();
 
   for (int il = grid.inline_min(); il <= grid.inline_max();
        il += grid.inline_increment()) {
@@ -466,7 +618,7 @@ StackFile::StackFile(const std::string& filename) : filename_(filename) {
     throw std::runtime_error("File: " + filename_ + " is not a StackFile!");
   }
 
-  header_.reset(new StackHeader());
+  header_.reset(new internal::StackHeader());
   size_t header_str_size;
   ifp.read(reinterpret_cast<char*>(&header_str_size), sizeof(header_str_size));
   LOGFN_VAR(header_str_size);
@@ -487,7 +639,7 @@ StackFile::StackFile(const std::string& filename) : filename_(filename) {
   CHECK_EQ(num_cells, header_->grid().num_active_cells());
 
   for (size_t i = 0; i < num_cells; i++) {
-    Grid::Cell* cell = grid_map_->addCell();
+    internal::Grid::Cell* cell = grid_map_->addCell();
     size_t cell_str_size;
     ifp.read(reinterpret_cast<char*>(&cell_str_size), sizeof(cell_str_size));
 
@@ -508,15 +660,16 @@ StackFile::StackFile(const std::string& filename,
                      const SegyOptions& opts) {
   TIMEIT;
   if (!segyfile.is_open() || !(segyfile.open_mode() & std::ios_base::in)) {
-    throw std::runtime_error("SegyFile " + segyfile.name() + " not opened for reading!");
+    throw std::runtime_error("SegyFile " + segyfile.name() +
+                             " not opened for reading!");
   }
 
   const SegyFile::BinaryHeader& binary_header = segyfile.getBinaryHeader();
 
-  header_.reset(new StackHeader());
+  header_.reset(new internal::StackHeader());
   header_->set_version(kStackFileVersion);
   header_->set_description(segyfile.getTextHeader().toString());
-  Grid* grid = header_->mutable_grid();
+  internal::Grid* grid = header_->mutable_grid();
 
   grid->set_num_samples(
       binary_header.getValueAtOffset<uint16_t>(kSegyOffsetNumSamples));
@@ -528,16 +681,16 @@ StackFile::StackFile(const std::string& filename,
       binary_header.getValueAtOffset<uint16_t>(kSegyOffsetMeasurementUnits);
   switch (unit_code) {
     case 1:
-      grid->set_units(Grid_Units_METERS);
+      grid->set_units(internal::Grid::METERS);
       break;
     case 2:
-      grid->set_units(Grid_Units_FEET);
+      grid->set_units(internal::Grid::FEET);
       break;
     default:
-      grid->set_units(Grid_Units_METERS);
+      grid->set_units(internal::Grid::METERS);
   }
 
-  StackHeader::SliceMetadata* inline_metadata =
+  internal::StackHeader::SliceMetadata* inline_metadata =
       header_->mutable_inline_metadata();
   std::string inline_data_file = filename + "_data";
   inline_metadata->set_binary_file(inline_data_file);
@@ -553,7 +706,7 @@ StackFile::StackFile(const std::string& filename,
     CHECK_EQ(grid->num_samples(), trace.samples().size());
     const SegyFile::Trace::Header& header = trace.header();
 
-    Grid::Cell* grid_cell = grid_map_->addCell();
+    internal::Grid::Cell* grid_cell = grid_map_->addCell();
     grid_cell->set_x_coordinate(header.getCoordinateValue(
         opts.getTraceHeaderOffset(SegyOptions::X_COORDINATE)));
     grid_cell->set_y_coordinate(header.getCoordinateValue(
@@ -581,14 +734,14 @@ StackFile::StackFile(const std::string& filename,
 
   computeInlineMetadata(inline_metadata);
 
-  StackHeader::SliceMetadata* crossline_metadata =
+  internal::StackHeader::SliceMetadata* crossline_metadata =
       header_->mutable_crossline_metadata();
   std::string crossline_data_file = filename + "_data_xline";
   crossline_metadata->set_binary_file(crossline_data_file);
 
   computeCrosslineMetadata(crossline_metadata);
 
-  StackHeader::SliceMetadata* depth_metadata =
+  internal::StackHeader::SliceMetadata* depth_metadata =
       header_->mutable_depth_metadata();
   std::string depth_data_file = filename + "_data_depth";
   depth_metadata->set_binary_file(depth_data_file);
@@ -614,7 +767,7 @@ StackFile::StackFile(const std::string& filename,
   CHECK_EQ(num_cells, header_->grid().num_active_cells());
   hdr_fp.write(reinterpret_cast<char*>(&num_cells), sizeof(num_cells));
 
-  for (const Grid::Cell& cell : grid_map_->cells()) {
+  for (const internal::Grid::Cell& cell : grid_map_->cells()) {
     std::string cell_str;
     if (!cell.SerializeToString(&cell_str)) {
       LOG(FATAL) << "Failed to serialize cell for writing" << std::endl;
@@ -652,22 +805,12 @@ void StackFile::initialize() {
     data_ds_file_.reset();
 }
 
-const Grid& StackFile::grid() const {
+StackFile::Grid StackFile::grid() const {
   CHECK_NOTNULL(grid_);
-  return *grid_;
-}
-
-int StackFile::getNumInlines() const {
-  return grid_map_->getNumInlines();
-}
-
-int StackFile::getNumCrosslines() const {
-  return grid_map_->getNumCrosslines();
-}
-
-const UTMZone& StackFile::getUtmZone() const {
-  CHECK_NOTNULL(header_);
-  return header_->utm_zone();
+  Grid grid;
+  grid.grid_data_ = (*grid_);
+  grid.utm_zone_ = header_->utm_zone();
+  return grid;
 }
 
 void StackFile::readInline(int il,
@@ -913,7 +1056,7 @@ void StackFile::writeDepthSlices() {
 
     buffer.resize(header_->inline_metadata().size(active_il_index));
     ::memcpy(&buffer[0], il_addr,
-                header_->inline_metadata().size(active_il_index));
+             header_->inline_metadata().size(active_il_index));
 
     size_t trc_num = 0;
     for (size_t iz = 0; iz < grid_->num_samples(); iz++) {
