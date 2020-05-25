@@ -19,6 +19,7 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#include <algorithm>
 #include <cmath>
 #include <functional>
 #include <set>
@@ -373,7 +374,7 @@ class StackFile::GridMap {
   typedef const GridData::Cell* (GridMap::*GetNextCoordMethod)(size_t,
                                                                size_t) const;
   float computeSpacing(GetNextCoordMethod get_next_coord) {
-    float min_spacing = std::numeric_limits<float>::max();
+    std::vector<float> spacings;
     for (size_t i = 0; i < cell_map_.size(); i++) {
       for (size_t j = 0; j < cell_map_[i].size(); j++) {
         const GridData::Cell* c1 = cell_map_[i][j];
@@ -382,15 +383,19 @@ class StackFile::GridMap {
           float dist =
               std::sqrt(std::pow(c1->x_coordinate() - c2->x_coordinate(), 2.0) +
                         std::pow(c1->y_coordinate() - c2->y_coordinate(), 2.0));
-          min_spacing = std::min(min_spacing, dist);
+          spacings.push_back(dist);
         }
       }
     }
 
-    if (min_spacing >= std::numeric_limits<float>::max()) {
+    if (spacings.size() == 0) {
       return 1.0;
     }
-    return min_spacing;
+
+    size_t center_idx = spacings.size() / 2;
+    std::nth_element(spacings.begin(), spacings.begin() + center_idx,
+                     spacings.end());
+    return spacings[center_idx];
   }
 
   const GridData::Cell* getCoordInNextInline(size_t il_idx,
