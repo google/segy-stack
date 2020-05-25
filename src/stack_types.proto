@@ -18,7 +18,7 @@ syntax = "proto3";
 package segystack.internal;
 
 // 3D Grid
-message Grid {
+message GridData {
   // Smallest inline number.
   int32 inline_min = 1;
 
@@ -81,7 +81,7 @@ message StackHeader {
   // Text describing the file.
   string description = 2;
 
-  Grid grid = 3;
+  GridData grid_data = 3;
 
   message SliceMetadata {
     string compression = 1;

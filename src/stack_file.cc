@@ -27,38 +27,38 @@
 #include "logging.h"
 #include "segy_file.h"
 
+using segystack::internal::GridData;
+
 namespace segystack {
 
-std::ostream& operator<<(std::ostream& os,
-                         const segystack::internal::Grid& grid) {
-  os << "IL range : " << grid.inline_min() << " - " << grid.inline_max()
-     << std::endl;
-  os << "XL range : " << grid.crossline_min() << " - " << grid.crossline_max()
-     << std::endl;
-  os << "IL increment : " << grid.inline_increment() << std::endl;
-  os << "XL increment : " << grid.crossline_increment() << std::endl;
-  os << "IL spacing : " << grid.inline_spacing() << std::endl;
-  os << "XL spacing : " << grid.crossline_spacing() << std::endl;
-  os << "Sampling interval : " << grid.sampling_interval() << std::endl;
-  os << "Num depth samples : " << grid.num_samples() << std::endl;
+std::ostream& operator<<(std::ostream& os, const GridData& grid_data) {
+  os << "IL range : " << grid_data.inline_min() << " - "
+     << grid_data.inline_max() << std::endl;
+  os << "XL range : " << grid_data.crossline_min() << " - "
+     << grid_data.crossline_max() << std::endl;
+  os << "IL increment : " << grid_data.inline_increment() << std::endl;
+  os << "XL increment : " << grid_data.crossline_increment() << std::endl;
+  os << "IL spacing : " << grid_data.inline_spacing() << std::endl;
+  os << "XL spacing : " << grid_data.crossline_spacing() << std::endl;
+  os << "Sampling interval : " << grid_data.sampling_interval() << std::endl;
+  os << "Num depth samples : " << grid_data.num_samples() << std::endl;
   os << "Units : ";
-  switch (grid.units()) {
-    case segystack::internal::Grid::METERS:
+  switch (grid_data.units()) {
+    case GridData::METERS:
       os << "Meters";
       break;
-    case segystack::internal::Grid::FEET:
+    case GridData::FEET:
       os << "Feet";
       break;
     default:
       os << "Unknown";
   };
   os << std::endl;
-  os << "Num active cells : " << grid.num_active_cells() << std::endl;
+  os << "Num active cells : " << grid_data.num_active_cells() << std::endl;
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os,
-                         const segystack::StackFile::Grid& grid) {
+std::ostream& operator<<(std::ostream& os, const StackFile::Grid& grid) {
   os << "IL num: " << grid.numInlines() << std::endl;
   os << "XL num: " << grid.numCrosslines() << std::endl;
   os << grid.grid_data_;
@@ -66,8 +66,7 @@ std::ostream& operator<<(std::ostream& os,
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os,
-                         const segystack::internal::Grid::Cell& cell) {
+std::ostream& operator<<(std::ostream& os, const GridData::Cell& cell) {
   os << "Coordinate (x, y) : (" << cell.x_coordinate() << ", "
      << cell.y_coordinate() << ")" << std::endl;
   os << "Grid numbers (IL, XL) : (" << cell.inline_number() << ", "
@@ -75,15 +74,13 @@ std::ostream& operator<<(std::ostream& os,
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os,
-                         const segystack::internal::UTMZone& utm) {
+std::ostream& operator<<(std::ostream& os, const internal::UTMZone& utm) {
   os << utm.number() << " " << utm.letter();
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os,
-                         const segystack::StackFile::SegyOptions& opts) {
-  using SegyOptions = segystack::StackFile::SegyOptions;
+std::ostream& operator<<(std::ostream& os, const StackFile::SegyOptions& opts) {
+  using SegyOptions = StackFile::SegyOptions;
   os << "UTM zone: " << opts.getUtmZone() << std::endl;
   os << "Inline number offset: "
      << opts.getTraceHeaderOffset(SegyOptions::INLINE_NUMBER) << std::endl;
@@ -148,43 +145,44 @@ class StackFile::GridMap {
  public:
   GridMap() {}
 
-  GridMap(const internal::Grid& grid) : grid_(grid) {}
+  GridMap(const GridData& grid_data) : grid_data_(grid_data) {}
 
-  internal::Grid::Cell* addCell() {
-    cells_.push_back(internal::Grid::Cell());
+  GridData::Cell* addCell() {
+    cells_.push_back(GridData::Cell());
     return &(cells_.back());
   }
 
   void RecomputeGrid() {
-    grid_.set_inline_min(std::numeric_limits<int>::max());
-    grid_.set_crossline_min(std::numeric_limits<int>::max());
-    grid_.set_inline_max(std::numeric_limits<int>::min());
-    grid_.set_crossline_max(std::numeric_limits<int>::min());
+    grid_data_.set_inline_min(std::numeric_limits<int>::max());
+    grid_data_.set_crossline_min(std::numeric_limits<int>::max());
+    grid_data_.set_inline_max(std::numeric_limits<int>::min());
+    grid_data_.set_crossline_max(std::numeric_limits<int>::min());
 
-    for (const internal::Grid::Cell& cell : cells_) {
-      grid_.set_inline_min(std::min(grid_.inline_min(), cell.inline_number()));
-      grid_.set_crossline_min(
-          std::min(grid_.crossline_min(), cell.crossline_number()));
-      grid_.set_inline_max(std::max(grid_.inline_max(), cell.inline_number()));
-      grid_.set_crossline_max(
-          std::max(grid_.crossline_max(), cell.crossline_number()));
+    for (const GridData::Cell& cell : cells_) {
+      grid_data_.set_inline_min(
+          std::min(grid_data_.inline_min(), cell.inline_number()));
+      grid_data_.set_crossline_min(
+          std::min(grid_data_.crossline_min(), cell.crossline_number()));
+      grid_data_.set_inline_max(
+          std::max(grid_data_.inline_max(), cell.inline_number()));
+      grid_data_.set_crossline_max(
+          std::max(grid_data_.crossline_max(), cell.crossline_number()));
     }
-    grid_.set_num_active_cells(cells_.size());
+    grid_data_.set_num_active_cells(cells_.size());
 
-    grid_.set_inline_increment(computeIncrement(
-        grid_.inline_min(), grid_.inline_max(),
-        [](const internal::Grid::Cell& cell) { return cell.inline_number(); }));
+    grid_data_.set_inline_increment(computeIncrement(
+        grid_data_.inline_min(), grid_data_.inline_max(),
+        [](const GridData::Cell& cell) { return cell.inline_number(); }));
 
-    grid_.set_crossline_increment(
-        computeIncrement(grid_.crossline_min(), grid_.crossline_max(),
-                         [](const internal::Grid::Cell& cell) {
-                           return cell.crossline_number();
-                         }));
+    grid_data_.set_crossline_increment(computeIncrement(
+        grid_data_.crossline_min(), grid_data_.crossline_max(),
+        [](const GridData::Cell& cell) { return cell.crossline_number(); }));
 
     Finalize();
 
-    grid_.set_inline_spacing(computeSpacing(&GridMap::getCoordInNextInline));
-    grid_.set_crossline_spacing(
+    grid_data_.set_inline_spacing(
+        computeSpacing(&GridMap::getCoordInNextInline));
+    grid_data_.set_crossline_spacing(
         computeSpacing(&GridMap::getCoordInNextCrossline));
   }
 
@@ -194,7 +192,7 @@ class StackFile::GridMap {
       cell_map_[i].resize(getNumCrosslines(), nullptr);
     }
 
-    for (const internal::Grid::Cell& cell : cells_) {
+    for (const GridData::Cell& cell : cells_) {
       int il_idx = getInlineIdx(cell.inline_number());
       int xl_idx = getCrosslineIdx(cell.crossline_number());
       cell_map_[il_idx][xl_idx] = &cell;
@@ -202,10 +200,11 @@ class StackFile::GridMap {
 
     active_il_index_map_.clear();
     int il_idx = 0;
-    for (int il = grid_.inline_min(); il <= grid_.inline_max();
-         il += grid_.inline_increment()) {
-      for (int xl = grid_.crossline_min(); xl <= grid_.crossline_max();
-           xl += grid_.crossline_increment()) {
+    for (int il = grid_data_.inline_min(); il <= grid_data_.inline_max();
+         il += grid_data_.inline_increment()) {
+      for (int xl = grid_data_.crossline_min();
+           xl <= grid_data_.crossline_max();
+           xl += grid_data_.crossline_increment()) {
         if (isCellActive(il, xl)) {
           active_il_index_map_[il] = il_idx++;
           break;
@@ -215,10 +214,10 @@ class StackFile::GridMap {
 
     active_xl_index_map_.clear();
     int xl_idx = 0;
-    for (int xl = grid_.crossline_min(); xl <= grid_.crossline_max();
-         xl += grid_.crossline_increment()) {
-      for (int il = grid_.inline_min(); il <= grid_.inline_max();
-           il += grid_.inline_increment()) {
+    for (int xl = grid_data_.crossline_min(); xl <= grid_data_.crossline_max();
+         xl += grid_data_.crossline_increment()) {
+      for (int il = grid_data_.inline_min(); il <= grid_data_.inline_max();
+           il += grid_data_.inline_increment()) {
         if (isCellActive(il, xl)) {
           active_xl_index_map_[xl] = xl_idx++;
           break;
@@ -228,25 +227,25 @@ class StackFile::GridMap {
   }
 
   int getNumInlines() const {
-    CHECK_GT(grid_.inline_increment(), 0);
-    return ((grid_.inline_max() - grid_.inline_min()) /
-            grid_.inline_increment()) +
+    CHECK_GT(grid_data_.inline_increment(), 0);
+    return ((grid_data_.inline_max() - grid_data_.inline_min()) /
+            grid_data_.inline_increment()) +
            1;
   }
 
   int getNumCrosslines() const {
-    CHECK_GT(grid_.crossline_increment(), 0);
-    return ((grid_.crossline_max() - grid_.crossline_min()) /
-            grid_.crossline_increment()) +
+    CHECK_GT(grid_data_.crossline_increment(), 0);
+    return ((grid_data_.crossline_max() - grid_data_.crossline_min()) /
+            grid_data_.crossline_increment()) +
            1;
   }
 
-  int getInlineIncrement() const { return grid_.inline_increment(); }
-  int getCrosslineIncrement() const { return grid_.crossline_increment(); }
+  int getInlineIncrement() const { return grid_data_.inline_increment(); }
+  int getCrosslineIncrement() const { return grid_data_.crossline_increment(); }
 
-  const internal::Grid& grid() const { return grid_; }
+  const GridData& gridData() const { return grid_data_; }
 
-  const std::vector<internal::Grid::Cell>& cells() const { return cells_; }
+  const std::vector<GridData::Cell>& cells() const { return cells_; }
 
   bool isCellActive(int il, int xl) const {
     try {
@@ -259,17 +258,18 @@ class StackFile::GridMap {
   }
 
   void setInlineDataAddress(const char* trc_addr) {
-    size_t num_trace_bytes = sizeof(float) * grid_.num_samples();
+    size_t num_trace_bytes = sizeof(float) * grid_data_.num_samples();
 
     trace_map_.resize(getNumInlines());
     for (size_t i = 0; i < trace_map_.size(); i++) {
       trace_map_[i].resize(getNumCrosslines(), nullptr);
     }
 
-    for (int il = grid_.inline_min(); il <= grid_.inline_max();
-         il += grid_.inline_increment()) {
-      for (int xl = grid_.crossline_min(); xl <= grid_.crossline_max();
-           xl += grid_.crossline_increment()) {
+    for (int il = grid_data_.inline_min(); il <= grid_data_.inline_max();
+         il += grid_data_.inline_increment()) {
+      for (int xl = grid_data_.crossline_min();
+           xl <= grid_data_.crossline_max();
+           xl += grid_data_.crossline_increment()) {
         if (isCellActive(il, xl)) {
           trace_map_[getInlineIdx(il)][getCrosslineIdx(xl)] =
               reinterpret_cast<const float*>(trc_addr);
@@ -290,7 +290,7 @@ class StackFile::GridMap {
   }
 
   int getInlineIdx(int il) const {
-    return (il - grid_.inline_min()) / grid_.inline_increment();
+    return (il - grid_data_.inline_min()) / grid_data_.inline_increment();
   }
 
   int getActiveInlineIdx(int il) const {
@@ -300,7 +300,7 @@ class StackFile::GridMap {
   }
 
   int getCrosslineIdx(int xl) const {
-    return (xl - grid_.crossline_min()) / grid_.crossline_increment();
+    return (xl - grid_data_.crossline_min()) / grid_data_.crossline_increment();
   }
 
   int getActiveCrosslineIdx(int xl) const {
@@ -310,10 +310,9 @@ class StackFile::GridMap {
   }
 
  private:
-  int computeIncrement(
-      int min_value,
-      int max_value,
-      std::function<int(const internal::Grid::Cell&)> line_number) {
+  int computeIncrement(int min_value,
+                       int max_value,
+                       std::function<int(const GridData::Cell&)> line_number) {
     if (min_value == max_value) {
       return 1;
     }
@@ -341,14 +340,14 @@ class StackFile::GridMap {
     return smallest_increment;
   }
 
-  typedef const internal::Grid::Cell* (
-      GridMap::*GetNextCoordMethod)(size_t, size_t) const;
+  typedef const GridData::Cell* (GridMap::*GetNextCoordMethod)(size_t,
+                                                               size_t) const;
   float computeSpacing(GetNextCoordMethod get_next_coord) {
     float min_spacing = std::numeric_limits<float>::max();
     for (size_t i = 0; i < cell_map_.size(); i++) {
       for (size_t j = 0; j < cell_map_[i].size(); j++) {
-        const internal::Grid::Cell* c1 = cell_map_[i][j];
-        const internal::Grid::Cell* c2 = (this->*get_next_coord)(i, j);
+        const GridData::Cell* c1 = cell_map_[i][j];
+        const GridData::Cell* c2 = (this->*get_next_coord)(i, j);
         if (c1 && c2) {
           float dist =
               std::sqrt(std::pow(c1->x_coordinate() - c2->x_coordinate(), 2.0) +
@@ -364,8 +363,8 @@ class StackFile::GridMap {
     return min_spacing;
   }
 
-  const internal::Grid::Cell* getCoordInNextInline(size_t il_idx,
-                                                   size_t xl_idx) const {
+  const GridData::Cell* getCoordInNextInline(size_t il_idx,
+                                             size_t xl_idx) const {
     if (il_idx >= 0 && il_idx < cell_map_.size() - 1 && xl_idx >= 0 &&
         xl_idx < cell_map_[il_idx + 1].size()) {
       return cell_map_[il_idx + 1][xl_idx];
@@ -373,8 +372,8 @@ class StackFile::GridMap {
     return nullptr;
   }
 
-  const internal::Grid::Cell* getCoordInNextCrossline(size_t il_idx,
-                                                      size_t xl_idx) const {
+  const GridData::Cell* getCoordInNextCrossline(size_t il_idx,
+                                                size_t xl_idx) const {
     if (il_idx >= 0 && il_idx < cell_map_.size() && xl_idx >= 0 &&
         xl_idx < cell_map_[il_idx].size() - 1) {
       return cell_map_[il_idx][xl_idx + 1];
@@ -382,9 +381,9 @@ class StackFile::GridMap {
     return nullptr;
   }
 
-  internal::Grid grid_;
-  std::vector<internal::Grid::Cell> cells_;
-  std::vector<std::vector<const internal::Grid::Cell*>> cell_map_;
+  GridData grid_data_;
+  std::vector<GridData::Cell> cells_;
+  std::vector<std::vector<const GridData::Cell*>> cell_map_;
   std::unordered_map<int, int> active_il_index_map_, active_xl_index_map_;
   std::vector<std::vector<const float*>> trace_map_;
 };
@@ -397,6 +396,9 @@ StackFile::Grid::Grid() {
   grid_data_.set_crossline_max(0);
   grid_data_.set_crossline_increment(1);
 }
+
+StackFile::Grid::Grid(const GridData& data, const UTMZone& utm)
+    : grid_data_(data), utm_zone_(utm) {}
 
 StackFile::Grid::~Grid() = default;
 
@@ -433,7 +435,7 @@ StackFile::Grid::Units StackFile::Grid::units() const {
 }
 
 void StackFile::Grid::setUnits(StackFile::Grid::Units value) {
-  grid_data_.set_units(static_cast<internal::Grid_Units>(value));
+  grid_data_.set_units(static_cast<internal::GridData_Units>(value));
 }
 
 int32_t StackFile::Grid::inlineMin() const {
@@ -529,16 +531,16 @@ void StackFile::computeInlineMetadata(
   CHECK_NOTNULL(grid_map_);
 
   size_t num_bytes_written = 0;
-  const internal::Grid& grid = grid_map_->grid();
+  const GridData& gd = grid_map_->gridData();
 
-  for (int il = grid.inline_min(); il <= grid.inline_max();
-       il += grid.inline_increment()) {
+  for (int il = gd.inline_min(); il <= gd.inline_max();
+       il += gd.inline_increment()) {
     size_t il_size = 0;
 
-    for (int xl = grid.crossline_min(); xl <= grid.crossline_max();
-         xl += grid.crossline_increment()) {
+    for (int xl = gd.crossline_min(); xl <= gd.crossline_max();
+         xl += gd.crossline_increment()) {
       if (grid_map_->isCellActive(il, xl)) {
-        il_size += sizeof(float) * grid.num_samples();
+        il_size += sizeof(float) * gd.num_samples();
       }
     }
 
@@ -555,16 +557,16 @@ void StackFile::computeCrosslineMetadata(
   CHECK_NOTNULL(grid_map_);
 
   size_t num_bytes_written = 0;
-  const internal::Grid& grid = grid_map_->grid();
+  const GridData& gd = grid_map_->gridData();
 
-  for (int xl = grid.crossline_min(); xl <= grid.crossline_max();
-       xl += grid.crossline_increment()) {
+  for (int xl = gd.crossline_min(); xl <= gd.crossline_max();
+       xl += gd.crossline_increment()) {
     size_t xl_size = 0;
 
-    for (int il = grid.inline_min(); il <= grid.inline_max();
-         il += grid.inline_increment()) {
+    for (int il = gd.inline_min(); il <= gd.inline_max();
+         il += gd.inline_increment()) {
       if (grid_map_->isCellActive(il, xl)) {
-        xl_size += sizeof(float) * grid.num_samples();
+        xl_size += sizeof(float) * gd.num_samples();
       }
     }
 
@@ -582,12 +584,12 @@ void StackFile::computeDepthSliceMetadata(
   CHECK_NOTNULL(grid_map_);
 
   size_t depth_slice_bytes = 0;
-  const internal::Grid& grid = grid_map_->grid();
+  const GridData& gd = grid_map_->gridData();
 
-  for (int il = grid.inline_min(); il <= grid.inline_max();
-       il += grid.inline_increment()) {
-    for (int xl = grid.crossline_min(); xl <= grid.crossline_max();
-         xl += grid.crossline_increment()) {
+  for (int il = gd.inline_min(); il <= gd.inline_max();
+       il += gd.inline_increment()) {
+    for (int xl = gd.crossline_min(); xl <= gd.crossline_max();
+         xl += gd.crossline_increment()) {
       if (grid_map_->isCellActive(il, xl)) {
         depth_slice_bytes += sizeof(float);
       }
@@ -595,7 +597,7 @@ void StackFile::computeDepthSliceMetadata(
   }
 
   size_t num_bytes_written = 0;
-  for (size_t iz = 0; iz < grid.num_samples(); iz++) {
+  for (size_t iz = 0; iz < gd.num_samples(); iz++) {
     depth_metadata->add_offset(num_bytes_written);
     num_bytes_written += depth_slice_bytes;
     depth_metadata->add_size(depth_slice_bytes);
@@ -632,14 +634,14 @@ StackFile::StackFile(const std::string& filename) : filename_(filename) {
     LOG(FATAL) << "Could not parse header from file " << filename_ << std::endl;
   }
 
-  grid_map_.reset(new GridMap(header_->grid()));
+  grid_map_.reset(new GridMap(header_->grid_data()));
 
   size_t num_cells;
   ifp.read(reinterpret_cast<char*>(&num_cells), sizeof(num_cells));
-  CHECK_EQ(num_cells, header_->grid().num_active_cells());
+  CHECK_EQ(num_cells, header_->grid_data().num_active_cells());
 
   for (size_t i = 0; i < num_cells; i++) {
-    internal::Grid::Cell* cell = grid_map_->addCell();
+    GridData::Cell* cell = grid_map_->addCell();
     size_t cell_str_size;
     ifp.read(reinterpret_cast<char*>(&cell_str_size), sizeof(cell_str_size));
 
@@ -669,25 +671,26 @@ StackFile::StackFile(const std::string& filename,
   header_.reset(new internal::StackHeader());
   header_->set_version(kStackFileVersion);
   header_->set_description(segyfile.getTextHeader().toString());
-  internal::Grid* grid = header_->mutable_grid();
+  GridData* grid_data = header_->mutable_grid_data();
 
-  grid->set_num_samples(
+  grid_data->set_num_samples(
       binary_header.getValueAtOffset<uint16_t>(kSegyOffsetNumSamples));
-  grid->set_sampling_interval(float(binary_header.getValueAtOffset<uint16_t>(
-                                  kSegyOffsetSampleInterval)) /
-                              1000.0);
+  grid_data->set_sampling_interval(
+      float(
+          binary_header.getValueAtOffset<uint16_t>(kSegyOffsetSampleInterval)) /
+      1000.0);
 
   uint16_t unit_code =
       binary_header.getValueAtOffset<uint16_t>(kSegyOffsetMeasurementUnits);
   switch (unit_code) {
     case 1:
-      grid->set_units(internal::Grid::METERS);
+      grid_data->set_units(GridData::METERS);
       break;
     case 2:
-      grid->set_units(internal::Grid::FEET);
+      grid_data->set_units(GridData::FEET);
       break;
     default:
-      grid->set_units(internal::Grid::METERS);
+      grid_data->set_units(GridData::METERS);
   }
 
   internal::StackHeader::SliceMetadata* inline_metadata =
@@ -700,13 +703,13 @@ StackFile::StackFile(const std::string& filename,
   std::ofstream inline_bin_file(inline_metadata->binary_file().c_str(),
                                 std::ios_base::trunc | std::ios_base::binary);
 
-  grid_map_.reset(new GridMap(*grid));
+  grid_map_.reset(new GridMap(*grid_data));
 
   while (segyfile.read(trace)) {
-    CHECK_EQ(grid->num_samples(), trace.samples().size());
+    CHECK_EQ(grid_data->num_samples(), trace.samples().size());
     const SegyFile::Trace::Header& header = trace.header();
 
-    internal::Grid::Cell* grid_cell = grid_map_->addCell();
+    GridData::Cell* grid_cell = grid_map_->addCell();
     grid_cell->set_x_coordinate(header.getCoordinateValue(
         opts.getTraceHeaderOffset(SegyOptions::X_COORDINATE)));
     grid_cell->set_y_coordinate(header.getCoordinateValue(
@@ -730,7 +733,7 @@ StackFile::StackFile(const std::string& filename,
   inline_bin_file.close();
 
   grid_map_->RecomputeGrid();
-  (*grid) = grid_map_->grid();
+  (*grid_data) = grid_map_->gridData();
 
   computeInlineMetadata(inline_metadata);
 
@@ -764,10 +767,10 @@ StackFile::StackFile(const std::string& filename,
   hdr_fp.write(header_str.c_str(), header_size);
 
   size_t num_cells = grid_map_->cells().size();
-  CHECK_EQ(num_cells, header_->grid().num_active_cells());
+  CHECK_EQ(num_cells, header_->grid_data().num_active_cells());
   hdr_fp.write(reinterpret_cast<char*>(&num_cells), sizeof(num_cells));
 
-  for (const internal::Grid::Cell& cell : grid_map_->cells()) {
+  for (const GridData::Cell& cell : grid_map_->cells()) {
     std::string cell_str;
     if (!cell.SerializeToString(&cell_str)) {
       LOG(FATAL) << "Failed to serialize cell for writing" << std::endl;
@@ -784,7 +787,7 @@ StackFile::StackFile(const std::string& filename,
 }
 
 void StackFile::initialize() {
-  grid_ = &(grid_map_->grid());
+  grid_.reset(new Grid(grid_map_->gridData(), header_->utm_zone()));
 
   data_file_.reset(new MmapFile(header_->inline_metadata().binary_file()));
   if (!data_file_->exists())
@@ -805,12 +808,9 @@ void StackFile::initialize() {
     data_ds_file_.reset();
 }
 
-StackFile::Grid StackFile::grid() const {
+const StackFile::Grid& StackFile::grid() const {
   CHECK_NOTNULL(grid_);
-  Grid grid;
-  grid.grid_data_ = (*grid_);
-  grid.utm_zone_ = header_->utm_zone();
-  return grid;
+  return (*grid_);
 }
 
 void StackFile::readInline(int il,
@@ -826,11 +826,11 @@ void StackFile::readInline(int il,
   TIMEIT;
   CHECK_NOTNULL(buffer);
 
-  if (il < grid_->inline_min() || il > grid_->inline_max()) {
+  if (il < grid_->inlineMin() || il > grid_->inlineMax()) {
     throw std::runtime_error("Inline " + std::to_string(il) + " out of range!");
   }
 
-  size_t expected_size = grid_map_->getNumCrosslines() * grid_->num_samples();
+  size_t expected_size = grid_map_->getNumCrosslines() * grid_->numSamples();
   if (buffer_size < expected_size) {
     std::ostringstream ostr;
     ostr << "readInline: data buffer length = " << buffer_size
@@ -845,11 +845,10 @@ void StackFile::readInline(int il,
     return;
   }
 
-  size_t num_trace_bytes = sizeof(float) * grid_map_->grid().num_samples();
-  int num_samples = grid_map_->grid().num_samples();
-  for (int xl = grid_->crossline_min(), xl_idx = 0;
-       xl <= grid_->crossline_max();
-       xl += grid_->crossline_increment(), ++xl_idx) {
+  size_t num_trace_bytes = sizeof(float) * grid_->numSamples();
+  int num_samples = grid_->numSamples();
+  for (int xl = grid_->crosslineMin(), xl_idx = 0; xl <= grid_->crosslineMax();
+       xl += grid_->crosslineIncrement(), ++xl_idx) {
     const float* trace = grid_map_->getTrace(il, xl);
     if (trace) {
       ::memcpy(buffer + xl_idx * num_samples, trace, num_trace_bytes);
@@ -869,12 +868,12 @@ void StackFile::readCrossline(int xl,
                               float fill_value) const {
   TIMEIT;
   CHECK_NOTNULL(buffer);
-  if (xl < grid_->crossline_min() || xl > grid_->crossline_max()) {
+  if (xl < grid_->crosslineMin() || xl > grid_->crosslineMax()) {
     throw std::runtime_error("Crossline " + std::to_string(xl) +
                              " out of range!");
   }
 
-  size_t expected_size = grid_map_->getNumInlines() * grid_->num_samples();
+  size_t expected_size = grid_map_->getNumInlines() * grid_->numSamples();
   if (buffer_size < expected_size) {
     std::ostringstream ostr;
     ostr << "readCrossline: data buffer length = " << buffer_size
@@ -908,13 +907,13 @@ void StackFile::readCrosslineOptimized(int xl,
 
   char* trace_addr = data_xl_file_->char_addr() +
                      header_->crossline_metadata().offset(offset_index);
-  size_t num_trace_bytes = sizeof(float) * grid_map_->grid().num_samples();
+  size_t num_trace_bytes = sizeof(float) * grid_->numSamples();
 
-  for (int il = grid_->inline_min(); il <= grid_->inline_max();
-       il += grid_->inline_increment()) {
-    int il_0 = (il - grid_->inline_min()) / grid_->inline_increment();
+  for (int il = grid_->inlineMin(); il <= grid_->inlineMax();
+       il += grid_->inlineIncrement()) {
+    int il_0 = (il - grid_->inlineMin()) / grid_->inlineIncrement();
     if (grid_map_->isCellActive(il, xl)) {
-      float* dest_trace = buffer + il_0 * grid_->num_samples();
+      float* dest_trace = buffer + il_0 * grid_->numSamples();
       CHECK_LE(dest_trace, buffer + buffer_size);
       ::memcpy(dest_trace, trace_addr, num_trace_bytes);
       trace_addr += num_trace_bytes;
@@ -926,14 +925,14 @@ void StackFile::readCrosslineFromInlineData(int xl,
                                             float* buffer,
                                             size_t buffer_size) const {
   TIMEIT;
-  for (int il = grid_->inline_min(); il <= grid_->inline_max();
-       il += grid_->inline_increment()) {
+  for (int il = grid_->inlineMin(); il <= grid_->inlineMax();
+       il += grid_->inlineIncrement()) {
     const float* trace = grid_map_->getTrace(il, xl);
     int il_0 = grid_map_->getInlineIdx(il);
     if (trace) {
-      float* dest_trace = buffer + il_0 * grid_->num_samples();
+      float* dest_trace = buffer + il_0 * grid_->numSamples();
       CHECK_LE(dest_trace, buffer + buffer_size);
-      ::memcpy(dest_trace, trace, sizeof(float) * grid_->num_samples());
+      ::memcpy(dest_trace, trace, sizeof(float) * grid_->numSamples());
     }
   }
 }
@@ -950,7 +949,7 @@ void StackFile::readDepthSlice(unsigned int sample_index,
                                float fill_value) const {
   TIMEIT;
   CHECK_NOTNULL(buffer);
-  if (sample_index >= grid_->num_samples()) {
+  if (sample_index >= grid_->numSamples()) {
     throw std::runtime_error("Sample index " + std::to_string(sample_index) +
                              " out of range!");
   }
@@ -1006,11 +1005,11 @@ void StackFile::writeCrosslineSlices() {
   std::ofstream xl_data_fp(header_->crossline_metadata().binary_file().c_str(),
                            std::ios_base::trunc | std::ios_base::binary);
 
-  size_t num_trace_bytes = sizeof(float) * grid_->num_samples();
-  for (int xl = grid_->crossline_min(); xl <= grid_->crossline_max();
-       xl += grid_->crossline_increment()) {
-    for (int il = grid_->inline_min(); il <= grid_->inline_max();
-         il += grid_->inline_increment()) {
+  size_t num_trace_bytes = sizeof(float) * grid_->numSamples();
+  for (int xl = grid_->crosslineMin(); xl <= grid_->crosslineMax();
+       xl += grid_->crosslineIncrement()) {
+    for (int il = grid_->inlineMin(); il <= grid_->inlineMax();
+         il += grid_->inlineIncrement()) {
       const float* trace = grid_map_->getTrace(il, xl);
       if (trace) {
         xl_data_fp.write(reinterpret_cast<const char*>(trace), num_trace_bytes);
@@ -1029,24 +1028,24 @@ void StackFile::writeDepthSlices() {
   data_ds_file_->open(std::ios_base::trunc | std::ios_base::binary);
 
   size_t depth_slice_bytes = 0;
-  for (int il = grid_->inline_min(); il <= grid_->inline_max();
-       il += grid_->inline_increment()) {
-    for (int xl = grid_->crossline_min(); xl <= grid_->crossline_max();
-         xl += grid_->crossline_increment()) {
+  for (int il = grid_->inlineMin(); il <= grid_->inlineMax();
+       il += grid_->inlineIncrement()) {
+    for (int xl = grid_->crosslineMin(); xl <= grid_->crosslineMax();
+         xl += grid_->crosslineIncrement()) {
       if (grid_map_->isCellActive(il, xl)) {
         depth_slice_bytes += sizeof(float);
       }
     }
   }
 
-  data_ds_file_->expand(depth_slice_bytes * grid_->num_samples());
+  data_ds_file_->expand(depth_slice_bytes * grid_->numSamples());
   data_ds_file_->map();
 
   std::vector<float> buffer;
   std::vector<float> buffer_ix_trc;
   size_t il_bytes_per_ds_written = 0;
-  for (int il = grid_->inline_min(); il <= grid_->inline_max();
-       il += grid_->inline_increment()) {
+  for (int il = grid_->inlineMin(); il <= grid_->inlineMax();
+       il += grid_->inlineIncrement()) {
     int active_il_index = grid_map_->getActiveInlineIdx(il);
     if (active_il_index < 0)
       continue;
@@ -1059,15 +1058,15 @@ void StackFile::writeDepthSlices() {
              header_->inline_metadata().size(active_il_index));
 
     size_t trc_num = 0;
-    for (size_t iz = 0; iz < grid_->num_samples(); iz++) {
+    for (size_t iz = 0; iz < grid_->numSamples(); iz++) {
       buffer_ix_trc.resize(grid_map_->getNumCrosslines());
       std::fill(buffer_ix_trc.begin(), buffer_ix_trc.end(), 0.0f);
 
       trc_num = 0;
-      for (int xl = grid_->crossline_min(); xl <= grid_->crossline_max();
-           xl += grid_->crossline_increment()) {
+      for (int xl = grid_->crosslineMin(); xl <= grid_->crosslineMax();
+           xl += grid_->crosslineIncrement()) {
         if (grid_map_->isCellActive(il, xl)) {
-          buffer_ix_trc[trc_num] = buffer[trc_num * grid_->num_samples() + iz];
+          buffer_ix_trc[trc_num] = buffer[trc_num * grid_->numSamples() + iz];
           trc_num++;
         }
       }
@@ -1096,7 +1095,7 @@ void StackFile::readDepthSliceOptimized(unsigned int sample_index,
   if (!data_ds_file_->is_mapped())
     data_ds_file_->map();
 
-  std::vector<float> depth_slice(grid_->num_active_cells());
+  std::vector<float> depth_slice(grid_->grid_data_.num_active_cells());
   CHECK_EQ(sizeof(float) * depth_slice.size(),
            size_t(header_->depth_metadata().size(sample_index)));
 
@@ -1106,10 +1105,10 @@ void StackFile::readDepthSliceOptimized(unsigned int sample_index,
            sizeof(float) * depth_slice.size());
 
   size_t src_idx = 0, dest_idx = 0;
-  for (int il = grid_->inline_min(); il <= grid_->inline_max();
-       il += grid_->inline_increment()) {
-    for (int xl = grid_->crossline_min(); xl <= grid_->crossline_max();
-         xl += grid_->crossline_increment()) {
+  for (int il = grid_->inlineMin(); il <= grid_->inlineMax();
+       il += grid_->inlineIncrement()) {
+    for (int xl = grid_->crosslineMin(); xl <= grid_->crosslineMax();
+         xl += grid_->crosslineIncrement()) {
       if (grid_map_->isCellActive(il, xl)) {
         CHECK_LT(dest_idx, buffer_size);
         buffer[dest_idx] = depth_slice[src_idx++];
@@ -1124,10 +1123,10 @@ void StackFile::readDepthSliceFromInlineData(unsigned int sample_index,
                                              size_t buffer_size) const {
   TIMEIT;
   size_t dest_idx = 0;
-  for (int il = grid_->inline_min(); il <= grid_->inline_max();
-       il += grid_->inline_increment()) {
-    for (int xl = grid_->crossline_min(); xl <= grid_->crossline_max();
-         xl += grid_->crossline_increment()) {
+  for (int il = grid_->inlineMin(); il <= grid_->inlineMax();
+       il += grid_->inlineIncrement()) {
+    for (int xl = grid_->crosslineMin(); xl <= grid_->crosslineMax();
+         xl += grid_->crosslineIncrement()) {
       if (grid_map_->isCellActive(il, xl)) {
         CHECK_LT(dest_idx, buffer_size);
         const float* trace = grid_map_->getTrace(il, xl);

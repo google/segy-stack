@@ -89,10 +89,12 @@ class StackFile {
     void setNumSamples(uint32_t value);
 
    protected:
+    Grid(const internal::GridData &data, const UTMZone &utm);
     friend class StackFile;
     friend std::ostream& operator<<(std::ostream& os,
                                     const segystack::StackFile::Grid& grid);
-    internal::Grid grid_data_;
+
+    internal::GridData grid_data_;
     UTMZone utm_zone_;
   };
 
@@ -128,7 +130,7 @@ class StackFile {
 
   explicit StackFile(const SegyFile& segyfile, const SegyOptions& opts);
 
-  Grid grid() const;
+  const Grid& grid() const;
 
   void readInline(int il,
                   std::vector<float>& data,
@@ -192,7 +194,7 @@ class StackFile {
   std::string filename_;
   std::unique_ptr<internal::StackHeader> header_;
   std::unique_ptr<GridMap> grid_map_;
-  const internal::Grid* grid_;
+  std::unique_ptr<const Grid> grid_;
   std::unique_ptr<MmapFile> data_file_, data_xl_file_, data_ds_file_;
 };
 
