@@ -27,20 +27,6 @@ namespace py = pybind11;
 using namespace py::literals;
 using namespace segystack;
 
-void init_types(py::module* m) {
-  py::class_<UTMZone> utm(*m, "UTMZone");
-  utm.def(py::init<>());
-  utm.def_property("number", &UTMZone::number, &UTMZone::set_number);
-  utm.def_property(
-      "letter", &UTMZone::letter,
-      [](UTMZone& self, const std::string& val) { self.set_letter(val); });
-  utm.def("__repr__", [](const UTMZone& val) {
-    std::ostringstream ostr;
-    ostr << val;
-    return ostr.str();
-  });
-}
-
 void init_segy_file(py::module* m) {
   py::class_<SegyFile> sgy(*m, "SegyFile");
 
@@ -98,6 +84,24 @@ void init_stack_file(py::module* m) {
          &StackFile::setCrosslineAccessOptimization);
   sf.def("set_depth_slice_access_opt",
          &StackFile::setDepthSliceAccessOptimization);
+
+  py::class_<StackFile::UTMZone> utm(sf, "UTMZone");
+  utm.def(py::init<>());
+  utm.def(py::init<int, char>());
+  utm.def_property("number", &StackFile::UTMZone::number,
+                   &StackFile::UTMZone::setNumber);
+  utm.def_property(
+      "letter", &StackFile::UTMZone::letter,
+      [](StackFile::UTMZone& self, const std::string& val) {
+        if (val.size() != 1)
+          throw py::type_error("Zone must consist of a single character!");
+        self.setLetter(val[0]);
+      });
+  utm.def("__repr__", [](const StackFile::UTMZone& val) {
+    std::ostringstream ostr;
+    ostr << val;
+    return ostr.str();
+  });
 
   py::class_<StackFile::Grid> grid(sf, "Grid");
   grid.def(py::init<>());
@@ -199,7 +203,6 @@ PYBIND11_MODULE(segystack, m) {
   google::InitGoogleLogging("segystack");
 
   m.doc() = "segystack python interface";
-  init_types(&m);
   init_segy_file(&m);
   init_stack_file(&m);
 

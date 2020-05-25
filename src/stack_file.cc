@@ -58,6 +58,11 @@ std::ostream& operator<<(std::ostream& os, const GridData& grid_data) {
   return os;
 }
 
+std::ostream& operator<<(std::ostream& os, const internal::UTMZone& utm) {
+  os << utm.number() << " " << utm.letter();
+  return os;
+}
+
 std::ostream& operator<<(std::ostream& os, const StackFile::Grid& grid) {
   os << "IL num: " << grid.numInlines() << std::endl;
   os << "XL num: " << grid.numCrosslines() << std::endl;
@@ -74,8 +79,8 @@ std::ostream& operator<<(std::ostream& os, const GridData::Cell& cell) {
   return os;
 }
 
-std::ostream& operator<<(std::ostream& os, const internal::UTMZone& utm) {
-  os << utm.number() << " " << utm.letter();
+std::ostream& operator<<(std::ostream& os, const StackFile::UTMZone& utm) {
+  os << utm.value().first << " " << utm.value().second;
   return os;
 }
 
@@ -102,20 +107,41 @@ constexpr int kSegyOffsetMeasurementUnits = 55;
 StackFile::~StackFile() = default;
 
 StackFile::SegyOptions::SegyOptions() {
-  utm_zone_.set_number(32);
-  utm_zone_.set_letter("U");
-
   offsets_[X_COORDINATE] = 181;
   offsets_[Y_COORDINATE] = 185;
   offsets_[INLINE_NUMBER] = 189;
   offsets_[CROSSLINE_NUMBER] = 193;
 }
 
-void StackFile::SegyOptions::setUtmZone(int num, char zone) {
-  if (num < 1 || num > 60)
+StackFile::UTMZone::UTMZone(int zone_num, char zone_char) {
+  setValue(zone_num, zone_char);
+}
+
+std::pair<int, char> StackFile::UTMZone::value() const {
+  return std::make_pair(int(utm_.number()), letter());
+}
+
+int StackFile::UTMZone::number() const {
+  return utm_.number();
+}
+
+void StackFile::UTMZone::setNumber(int zone_num) {
+  setValue(zone_num, letter());
+}
+
+char StackFile::UTMZone::letter() const {
+  return utm_.letter()[0];
+}
+
+void StackFile::UTMZone::setLetter(char zone_char) {
+  setValue(number(), zone_char);
+}
+
+void StackFile::UTMZone::setValue(int zone_num, char zone_char) {
+  if (zone_num < 1 || zone_num > 60)
     throw std::runtime_error("UTM zone number should be in range [1, 60]");
 
-  std::string letter(1, std::toupper(zone));
+  std::string letter(1, std::toupper(zone_char));
   std::set<char> zones;
   const std::set<char> forbidden = {'A', 'B', 'Y', 'Z', 'I', 'O'};
   for (char c = 'A'; c <= 'Z'; c++) {
@@ -130,8 +156,12 @@ void StackFile::SegyOptions::setUtmZone(int num, char zone) {
     throw std::runtime_error("UTM zone letter should be one of " + ostr.str());
   }
 
-  utm_zone_.set_number(num);
-  utm_zone_.set_letter(letter.c_str());
+  utm_.set_number(zone_num);
+  utm_.set_letter(letter.c_str());
+}
+
+void StackFile::SegyOptions::setUtmZone(int num, char zone) {
+  utm_zone_.setValue(num, zone);
 }
 
 void StackFile::SegyOptions::setTraceHeaderOffset(TraceHeaderAttribute attr,
@@ -397,7 +427,7 @@ StackFile::Grid::Grid() {
   grid_data_.set_crossline_increment(1);
 }
 
-StackFile::Grid::Grid(const GridData& data, const UTMZone& utm)
+StackFile::Grid::Grid(const GridData& data, const internal::UTMZone& utm)
     : grid_data_(data), utm_zone_(utm) {}
 
 StackFile::Grid::~Grid() = default;
@@ -426,8 +456,9 @@ void StackFile::Grid::setNumCrosslines(uint32_t value) {
                                (value - 1) * grid_data_.crossline_increment());
 }
 
-const UTMZone& StackFile::Grid::utmZone() const {
-  return utm_zone_;
+StackFile::UTMZone StackFile::Grid::utmZone() const {
+  char letter = utm_zone_.letter()[0];
+  return UTMZone(utm_zone_.number(), letter);
 }
 
 StackFile::Grid::Units StackFile::Grid::units() const {
@@ -751,8 +782,8 @@ StackFile::StackFile(const std::string& filename,
 
   computeDepthSliceMetadata(depth_metadata);
 
-  UTMZone* utm_zone = header_->mutable_utm_zone();
-  (*utm_zone) = opts.getUtmZone();
+  internal::UTMZone* utm_zone = header_->mutable_utm_zone();
+  (*utm_zone) = opts.getUtmZone().utm_;
 
   std::ofstream hdr_fp(filename.c_str(),
                        std::ios_base::trunc | std::ios_base::binary);

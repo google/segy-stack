@@ -19,6 +19,7 @@
 
 #include <map>
 #include <string>
+#include <utility>
 
 #include "mmap_file.h"
 #include "segy_file.h"
@@ -26,10 +27,26 @@
 
 namespace segystack {
 
-typedef internal::UTMZone UTMZone;
-
 class StackFile {
  public:
+  class UTMZone {
+   public:
+    UTMZone(int zone_num = 32, char zone_char = 'U');  // default UTM Zone.
+
+    std::pair<int, char> value() const;
+    void setValue(int zone_num, char zone_char);
+
+    int number() const;
+    void setNumber(int zone_num);
+
+    char letter() const;
+    void setLetter(char zone_char);
+
+   private:
+    friend class StackFile;
+    internal::UTMZone utm_;
+  };
+
   class Grid {
    public:
     enum Units { METERS = 0, FEET = 1 };
@@ -43,7 +60,7 @@ class StackFile {
     uint32_t numCrosslines() const;
     void setNumCrosslines(uint32_t value);
 
-    const UTMZone& utmZone() const;
+    UTMZone utmZone() const;
 
     Units units() const;
     void setUnits(Units value);
@@ -89,13 +106,13 @@ class StackFile {
     void setNumSamples(uint32_t value);
 
    protected:
-    Grid(const internal::GridData &data, const UTMZone &utm);
+    Grid(const internal::GridData& data, const internal::UTMZone& utm);
     friend class StackFile;
     friend std::ostream& operator<<(std::ostream& os,
                                     const segystack::StackFile::Grid& grid);
 
     internal::GridData grid_data_;
-    UTMZone utm_zone_;
+    internal::UTMZone utm_zone_;
   };
 
   class SegyOptions {
@@ -200,7 +217,7 @@ class StackFile {
 
 std::ostream& operator<<(std::ostream& os,
                          const segystack::StackFile::Grid& grid);
-std::ostream& operator<<(std::ostream& os, const segystack::UTMZone& utm);
+std::ostream& operator<<(std::ostream& os, const StackFile::UTMZone& utm);
 std::ostream& operator<<(std::ostream& os,
                          const segystack::StackFile::SegyOptions& opts);
 
