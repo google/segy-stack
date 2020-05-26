@@ -12,6 +12,8 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+find_package(PythonInterp)
+
 file(GLOB PYMOD_HEADERS "*.h")
 file(GLOB PYMOD_SOURCES "*.cc")
 
@@ -22,7 +24,12 @@ include_directories("${PROJECT_SOURCE_DIR}/third_party")
 target_link_libraries( ${CMAKE_PROJECT_NAME}_py
                        PUBLIC ${CMAKE_PROJECT_NAME} ${Protobuf_LIBRARIES} glog::glog )
 
-
 set_target_properties( ${CMAKE_PROJECT_NAME}_py PROPERTIES OUTPUT_NAME ${CMAKE_PROJECT_NAME}
                        PREFIX "${PYTHON_MODULE_PREFIX}"
                        SUFFIX ".so")
+
+execute_process(COMMAND ${PYTHON_EXECUTABLE} -m site --user-site
+                OUTPUT_VARIABLE PYTHON_USERSITE
+                OUTPUT_STRIP_TRAILING_WHITESPACE)
+
+install(FILES $<TARGET_FILE:${CMAKE_PROJECT_NAME}_py> DESTINATION ${PYTHON_USERSITE})
