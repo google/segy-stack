@@ -105,14 +105,29 @@ class StackFile {
     uint32_t numSamples() const;
     void setNumSamples(uint32_t value);
 
+    struct Coordinate {
+      float x, y;
+      Coordinate() : x(0), y(0) {}
+      Coordinate(float x, float y) : x(x), y(y) {}
+    };
+
+    struct BoundingBox {
+      Coordinate c1, c2, c3, c4;
+    };
+
+    BoundingBox boundingBox() const;
+
    protected:
-    Grid(const internal::GridData& data, const internal::UTMZone& utm);
+    Grid(const internal::GridData& data,
+         const internal::UTMZone& utm,
+         const BoundingBox& bbox);
     friend class StackFile;
     friend std::ostream& operator<<(std::ostream& os,
                                     const segystack::StackFile::Grid& grid);
 
     internal::GridData grid_data_;
     internal::UTMZone utm_zone_;
+    BoundingBox bbox_;
   };
 
   class SegyOptions {
@@ -215,11 +230,15 @@ class StackFile {
   std::unique_ptr<MmapFile> data_file_, data_xl_file_, data_ds_file_;
 };
 
+std::ostream& operator<<(std::ostream& os, const StackFile::Grid& grid);
 std::ostream& operator<<(std::ostream& os,
-                         const segystack::StackFile::Grid& grid);
+                         const StackFile::Grid::Coordinate& coord);
+std::ostream& operator<<(std::ostream& os,
+                         const StackFile::Grid::BoundingBox& bbox);
+std::ostream& operator<<(std::ostream& os,
+                         const StackFile::Grid::Coordinate& coord);
 std::ostream& operator<<(std::ostream& os, const StackFile::UTMZone& utm);
-std::ostream& operator<<(std::ostream& os,
-                         const segystack::StackFile::SegyOptions& opts);
+std::ostream& operator<<(std::ostream& os, const StackFile::SegyOptions& opts);
 
 }  // namespace segystack
 

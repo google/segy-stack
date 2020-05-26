@@ -69,6 +69,20 @@ std::ostream& operator<<(std::ostream& os, const StackFile::Grid& grid) {
   os << "XL num: " << grid.numCrosslines() << std::endl;
   os << grid.grid_data_;
   os << "UTM Zone: " << grid.utm_zone_ << std::endl;
+  os << "Bounding box: " << grid.bbox_ << std::endl;
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const StackFile::Grid::Coordinate& coord) {
+  os << "(" << coord.x << ", " << coord.y << ")";
+  return os;
+}
+
+std::ostream& operator<<(std::ostream& os,
+                         const StackFile::Grid::BoundingBox& bbox) {
+  os << std::endl << "C3 " << bbox.c3 << "\t---\tC4 " << bbox.c4;
+  os << std::endl << "C1 " << bbox.c1 << "\t---\tC2 " << bbox.c2 << std::endl;
   return os;
 }
 
@@ -340,7 +354,147 @@ class StackFile::GridMap {
     return -1;
   }
 
+  Grid::BoundingBox computeBoundingBox() const {
+    Grid::BoundingBox bbox;
+
+    LOGFN_VAR(getNumInlines());
+    LOGFN_VAR(getNumCrosslines());
+
+    if (getNumInlines() == 1 && getNumCrosslines() == 1) {
+      // Single cell case.
+      const GridData::Cell* cell = cell_map_[0][0];
+      CHECK_NOTNULL(cell);
+      Grid::Coordinate c(cell->x_coordinate(), cell->y_coordinate());
+      bbox.c1 = c;
+      bbox.c2 = c;
+      bbox.c3 = c;
+      bbox.c4 = c;
+      return bbox;
+    } else if (getNumInlines() == 1) {
+      // Single inline case.
+      const GridData::Cell* cell1 = cell_map_[0][0];
+      const GridData::Cell* cell2 = cell_map_[0][getNumCrosslines() - 1];
+      CHECK_NOTNULL(cell1);
+      CHECK_NOTNULL(cell2);
+      Grid::Coordinate c1(cell1->x_coordinate(), cell1->y_coordinate());
+      Grid::Coordinate c2(cell2->x_coordinate(), cell2->y_coordinate());
+      bbox.c1 = c1;
+      bbox.c3 = c1;
+      bbox.c2 = c2;
+      bbox.c4 = c2;
+      return bbox;
+    } else if (getNumCrosslines() == 1) {
+      // Single crossline case.
+      const GridData::Cell* cell1 = cell_map_[0][0];
+      const GridData::Cell* cell2 = cell_map_[getNumInlines() - 1][0];
+      CHECK_NOTNULL(cell1);
+      CHECK_NOTNULL(cell2);
+      Grid::Coordinate c1(cell1->x_coordinate(), cell1->y_coordinate());
+      Grid::Coordinate c3(cell2->x_coordinate(), cell2->y_coordinate());
+      bbox.c1 = c1;
+      bbox.c3 = c3;
+      bbox.c2 = c1;
+      bbox.c4 = c3;
+      return bbox;
+    }
+
+    float max_len_il = 0;
+    size_t origin_il_idx = 0, origin_xl_idx = 0;
+    const GridData::Cell* origin = nullptr;
+    const GridData::Cell* support = nullptr;
+    for (size_t i = 0; i < cell_map_.size(); i++) {
+      const GridData::Cell* c1 = nullptr;
+      const GridData::Cell* c2 = nullptr;
+      size_t c1_xl_idx = 0;
+      for (size_t j = 0; j < cell_map_[i].size(); j++) {
+        if (cell_map_[i][j]) {
+          c1 = cell_map_[i][j];
+          c1_xl_idx = j;
+          break;
+        }
+      }
+
+      for (int j = cell_map_[i].size() - 1; j >= 0; j--) {
+        if (cell_map_[i][j]) {
+          c2 = cell_map_[i][j];
+          break;
+        }
+      }
+
+      if (c1 && c2 && (c1 != c2)) {
+        float dist = computeDistBetweenCells(*c1, *c2);
+        if (dist > max_len_il) {
+          max_len_il = dist;
+          origin_il_idx = i;
+          origin_xl_idx = c1_xl_idx;
+          origin = c1;
+          support = c2;
+        }
+      }
+    }
+
+    CHECK_NOTNULL(origin);
+    CHECK_NOTNULL(support);
+
+    LOGFN_VAR(*origin);
+    LOGFN_VAR(*support);
+
+    float x_dist = support->x_coordinate() - origin->x_coordinate();
+    float y_dist = support->y_coordinate() - origin->y_coordinate();
+
+    CHECK_NE(std::abs(x_dist) == 0.0f && std::abs(y_dist) == 0.0f, true);
+
+    float theta = std::atan2(y_dist, x_dist);
+
+    // The four corners in the local coordinate system around the origin.
+    Grid::Coordinate c1_r(-origin_xl_idx * grid_data_.crossline_spacing(),
+                          -origin_il_idx * grid_data_.inline_spacing());
+
+    Grid::Coordinate c2_r((getNumCrosslines() - origin_xl_idx - 1) *
+                              grid_data_.crossline_spacing(),
+                          c1_r.y);
+
+    Grid::Coordinate c3_r(c1_r.x, (getNumInlines() - origin_il_idx - 1) *
+                                      grid_data_.inline_spacing());
+
+    Grid::Coordinate c4_r(c2_r.x, c3_r.y);
+
+    auto set_corner_value = [](const GridData::Cell* cell,
+                               const Grid::Coordinate& c_r,
+                               const GridData::Cell& origin, float theta,
+                               Grid::Coordinate* corner) {
+      if (cell) {
+        corner->x = cell->x_coordinate();
+        corner->y = cell->y_coordinate();
+      } else {
+        (*corner) = ConvertToGlobalCRS(c_r, origin, theta);
+      }
+    };
+
+    set_corner_value(cell_map_[0][0], c1_r, *origin, theta, &bbox.c1);
+    set_corner_value(cell_map_[0][getNumCrosslines() - 1], c2_r, *origin, theta,
+                     &bbox.c2);
+    set_corner_value(cell_map_[getNumInlines() - 1][0], c3_r, *origin, theta,
+                     &bbox.c3);
+    set_corner_value(cell_map_[getNumInlines() - 1][getNumCrosslines() - 1],
+                     c4_r, *origin, theta, &bbox.c4);
+
+    return bbox;
+  }
+
  private:
+  static Grid::Coordinate ConvertToGlobalCRS(const Grid::Coordinate& c_r,
+                                             const GridData::Cell& origin,
+                                             float theta) {
+    Grid::Coordinate c;
+    // Rotate in opposite direction and then translate back.
+    c.x = c_r.x * std::cos(-theta) + c_r.y * std::sin(-theta) +
+          origin.x_coordinate();
+    c.y = -c_r.x * std::sin(-theta) + c_r.y * std::cos(-theta) +
+          origin.y_coordinate();
+    return c;
+  }
+
   int computeIncrement(int min_value,
                        int max_value,
                        std::function<int(const GridData::Cell&)> line_number) {
@@ -373,16 +527,14 @@ class StackFile::GridMap {
 
   typedef const GridData::Cell* (GridMap::*GetNextCoordMethod)(size_t,
                                                                size_t) const;
-  float computeSpacing(GetNextCoordMethod get_next_coord) {
+  float computeSpacing(GetNextCoordMethod get_next_coord) const {
     std::vector<float> spacings;
     for (size_t i = 0; i < cell_map_.size(); i++) {
       for (size_t j = 0; j < cell_map_[i].size(); j++) {
         const GridData::Cell* c1 = cell_map_[i][j];
         const GridData::Cell* c2 = (this->*get_next_coord)(i, j);
         if (c1 && c2) {
-          float dist =
-              std::sqrt(std::pow(c1->x_coordinate() - c2->x_coordinate(), 2.0) +
-                        std::pow(c1->y_coordinate() - c2->y_coordinate(), 2.0));
+          float dist = computeDistBetweenCells(*c1, *c2);
           spacings.push_back(dist);
         }
       }
@@ -396,6 +548,12 @@ class StackFile::GridMap {
     std::nth_element(spacings.begin(), spacings.begin() + center_idx,
                      spacings.end());
     return spacings[center_idx];
+  }
+
+  float computeDistBetweenCells(const GridData::Cell& c1,
+                                const GridData::Cell& c2) const {
+    return std::sqrt(std::pow(c1.x_coordinate() - c2.x_coordinate(), 2.0) +
+                     std::pow(c1.y_coordinate() - c2.y_coordinate(), 2.0));
   }
 
   const GridData::Cell* getCoordInNextInline(size_t il_idx,
@@ -432,8 +590,10 @@ StackFile::Grid::Grid() {
   grid_data_.set_crossline_increment(1);
 }
 
-StackFile::Grid::Grid(const GridData& data, const internal::UTMZone& utm)
-    : grid_data_(data), utm_zone_(utm) {}
+StackFile::Grid::Grid(const GridData& data,
+                      const internal::UTMZone& utm,
+                      const BoundingBox& bbox)
+    : grid_data_(data), utm_zone_(utm), bbox_(bbox) {}
 
 StackFile::Grid::~Grid() = default;
 
@@ -560,6 +720,10 @@ uint32_t StackFile::Grid::numSamples() const {
 void StackFile::Grid::setNumSamples(uint32_t value) {
   CHECK_GT(value, 0u);
   grid_data_.set_num_samples(value);
+}
+
+StackFile::Grid::BoundingBox StackFile::Grid::boundingBox() const {
+  return bbox_;
 }
 
 void StackFile::computeInlineMetadata(
@@ -823,7 +987,8 @@ StackFile::StackFile(const std::string& filename,
 }
 
 void StackFile::initialize() {
-  grid_.reset(new Grid(grid_map_->gridData(), header_->utm_zone()));
+  grid_.reset(new Grid(grid_map_->gridData(), header_->utm_zone(),
+                       grid_map_->computeBoundingBox()));
 
   data_file_.reset(new MmapFile(header_->inline_metadata().binary_file()));
   if (!data_file_->exists())

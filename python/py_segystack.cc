@@ -106,6 +106,7 @@ void init_stack_file(py::module* m) {
   py::class_<StackFile::Grid> grid(sf, "Grid");
   grid.def(py::init<>());
   grid.def("utm_zone", &StackFile::Grid::utmZone);
+  grid.def("bounding_box", &StackFile::Grid::boundingBox);
   grid.def_property("inline_min", &StackFile::Grid::inlineMin,
                     &StackFile::Grid::setInlineMin);
   grid.def_property("inline_max", &StackFile::Grid::inlineMax,
@@ -168,6 +169,52 @@ void init_stack_file(py::module* m) {
       .value("METERS", StackFile::Grid::METERS)
       .value("FEET", StackFile::Grid::FEET)
       .export_values();
+
+  py::class_<StackFile::Grid::Coordinate> coord(grid, "Coordinate");
+  coord.def(py::init<float, float>());
+  coord.def_property(
+      "x", [](const StackFile::Grid::Coordinate& self) { return self.x; },
+      [](StackFile::Grid::Coordinate&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  coord.def_property(
+      "y", [](const StackFile::Grid::Coordinate& self) { return self.y; },
+      [](StackFile::Grid::Coordinate&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  coord.def("__repr__", [](const StackFile::Grid::Coordinate& val) {
+    std::ostringstream ostr;
+    ostr << val;
+    return ostr.str();
+  });
+
+  py::class_<StackFile::Grid::BoundingBox> bbox(grid, "BoundingBox");
+  bbox.def(py::init<>());
+  bbox.def_property(
+      "c1", [](const StackFile::Grid::BoundingBox& self) { return self.c1; },
+      [](StackFile::Grid::BoundingBox&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  bbox.def_property(
+      "c2", [](const StackFile::Grid::BoundingBox& self) { return self.c2; },
+      [](StackFile::Grid::BoundingBox&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  bbox.def_property(
+      "c3", [](const StackFile::Grid::BoundingBox& self) { return self.c3; },
+      [](StackFile::Grid::BoundingBox&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  bbox.def_property(
+      "c4", [](const StackFile::Grid::BoundingBox& self) { return self.c4; },
+      [](StackFile::Grid::BoundingBox&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  bbox.def("__repr__", [](const StackFile::Grid::BoundingBox& val) {
+    std::ostringstream ostr;
+    ostr << val;
+    return ostr.str();
+  });
 
   py::class_<StackFile::SegyOptions> opts(sf, "SegyOptions");
   opts.def(py::init<>());

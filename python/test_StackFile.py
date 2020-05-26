@@ -69,8 +69,10 @@ class TestStackFile:
         samp_int = 1 + int(2000 / num_ds)
         il_incr = 1 + int(num_ds / num_il)
         xl_incr = 1 + int(num_ds / num_xl)
+        il_sp = 20.0 * il_incr
+        xl_sp = 10.0 * xl_incr
         create_test_segy(sgy_file, num_ds, samp_int, num_il,
-                         il_incr, num_xl, xl_incr, 0.0, 0.0, 1.0, 1.0, opts)
+                         il_incr, num_xl, xl_incr, 0.0, 0.0, il_sp, xl_sp, opts)
 
         sgy = SegyFile(sgy_file)
         sgy.open("r")
@@ -79,20 +81,22 @@ class TestStackFile:
         sgy.close()
 
         self.check_stackfile(sf, opts, outfile, num_il,
-                             num_xl, num_ds, samp_int, il_incr, xl_incr)
+                             num_xl, num_ds, samp_int, il_incr, xl_incr, il_sp, xl_sp)
 
         sf_in = StackFile(outfile)
         self.check_stackfile(sf_in, opts, outfile, num_il,
-                             num_xl, num_ds, samp_int, il_incr, xl_incr)
+                             num_xl, num_ds, samp_int, il_incr, xl_incr, il_sp, xl_sp)
 
         os.remove(sgy_file)
         os.remove(outfile)
         os.remove(outfile + "_data")
 
-    def check_stackfile(self, sf, opts, outfile, num_il, num_xl, num_ds, samp_int, il_incr, xl_incr):
+    def check_stackfile(self, sf, opts, outfile, num_il, num_xl, num_ds,
+                        samp_int, il_incr, xl_incr, il_sp, xl_sp):
 
         if (sf.grid().num_inlines > 1):
             assert(sf.grid().inline_increment == il_incr)
+            assert(sf.grid().inline_spacing == il_sp)
 
         il_nums = set(sf.grid().inline_numbers)
         for il in range(sf.grid().inline_min, sf.grid().inline_max+1, sf.grid().inline_increment):
@@ -102,6 +106,7 @@ class TestStackFile:
 
         if (sf.grid().num_crosslines > 1):
             assert(sf.grid().crossline_increment == xl_incr)
+            assert(sf.grid().crossline_spacing == xl_sp)
 
         xl_nums = set(sf.grid().crossline_numbers)
         for xl in range(sf.grid().crossline_min, sf.grid().crossline_max+1, sf.grid().crossline_increment):
