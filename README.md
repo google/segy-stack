@@ -10,6 +10,7 @@ git clone --recurse-submodules https://github.com/google/segy-stack.git
 cd segy-stack && mkdir build && cd build
 cmake -DCMAKE_BUILD_TYPE=Release ..
 make
+make install
 ```
 
 ## License 
