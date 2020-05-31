@@ -106,7 +106,15 @@ class SegyFile {
   class Trace {
    public:
     // The SEG Y trace header contains trace attributes.
-    struct Header {
+    class Header {
+      public:
+      enum class Attribute {
+        INLINE_NUMBER,
+        CROSSLINE_NUMBER,
+        X_COORDINATE,
+        Y_COORDINATE
+      };
+
       char data[TRACE_HEADER_SIZE];
 
       ADD_VALUE_AT_OFFSET_GETTER_METHOD

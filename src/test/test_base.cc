@@ -82,23 +82,30 @@ void create_test_segy(const std::string& outfile,
     for (int xl = 0; xl < num_xl; ++xl) {
       char* il_num_addr =
           trace_header.data() +
-          opts.getTraceHeaderOffset(StackFile::SegyOptions::INLINE_NUMBER) - 1;
+          opts.getTraceHeaderOffset(
+              SegyFile::Trace::Header::Attribute::INLINE_NUMBER) -
+          1;
       WRITE_VALUE(il_num_addr, (il * il_increment));
 
       char* xl_num_addr =
           trace_header.data() +
-          opts.getTraceHeaderOffset(StackFile::SegyOptions::CROSSLINE_NUMBER) -
+          opts.getTraceHeaderOffset(
+              SegyFile::Trace::Header::Attribute::CROSSLINE_NUMBER) -
           1;
       WRITE_VALUE(xl_num_addr, (xl * xl_increment));
 
       char* x_coord_addr =
           trace_header.data() +
-          opts.getTraceHeaderOffset(StackFile::SegyOptions::X_COORDINATE) - 1;
+          opts.getTraceHeaderOffset(
+              SegyFile::Trace::Header::Attribute::X_COORDINATE) -
+          1;
       WRITE_VALUE(x_coord_addr, (x_origin + xl * xl_spacing));
 
       char* y_coord_addr =
           trace_header.data() +
-          opts.getTraceHeaderOffset(StackFile::SegyOptions::Y_COORDINATE) - 1;
+          opts.getTraceHeaderOffset(
+              SegyFile::Trace::Header::Attribute::Y_COORDINATE) -
+          1;
       WRITE_VALUE(y_coord_addr, (y_origin + il * il_spacing));
 
       ofs.write(trace_header.data(), trace_header.size());

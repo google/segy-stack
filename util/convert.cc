@@ -63,22 +63,23 @@ int main(int argc, char* argv[]) {
 
   StackFile::SegyOptions opts;
   if (FLAGS_il_offset.IsSpecifiedOnCommandLine()) {
-    opts.setTraceHeaderOffset(StackFile::SegyOptions::INLINE_NUMBER,
+    opts.setTraceHeaderOffset(SegyFile::Trace::Header::Attribute::INLINE_NUMBER,
                               FLAGS_il_offset.Get());
   }
 
   if (FLAGS_xl_offset.IsSpecifiedOnCommandLine()) {
-    opts.setTraceHeaderOffset(StackFile::SegyOptions::CROSSLINE_NUMBER,
-                              FLAGS_xl_offset.Get());
+    opts.setTraceHeaderOffset(
+        SegyFile::Trace::Header::Attribute::CROSSLINE_NUMBER,
+        FLAGS_xl_offset.Get());
   }
 
   if (FLAGS_x_coord_offset.IsSpecifiedOnCommandLine()) {
-    opts.setTraceHeaderOffset(StackFile::SegyOptions::X_COORDINATE,
+    opts.setTraceHeaderOffset(SegyFile::Trace::Header::Attribute::X_COORDINATE,
                               FLAGS_x_coord_offset.Get());
   }
 
   if (FLAGS_y_coord_offset.IsSpecifiedOnCommandLine()) {
-    opts.setTraceHeaderOffset(StackFile::SegyOptions::Y_COORDINATE,
+    opts.setTraceHeaderOffset(SegyFile::Trace::Header::Attribute::Y_COORDINATE,
                               FLAGS_y_coord_offset.Get());
   }
 

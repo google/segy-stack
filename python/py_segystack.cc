@@ -41,6 +41,22 @@ void init_segy_file(py::module* m) {
   });
   sgy.def("name", &SegyFile::name);
   sgy.def("close", &SegyFile::close);
+
+  py::class_<SegyFile::Trace> trace(sgy, "Trace");
+  trace.def(py::init<>());
+  trace.def("header",
+            [](const SegyFile::Trace& self) { return self.header(); });
+
+  py::class_<SegyFile::Trace::Header> hdr(trace, "Header");
+  hdr.def(py::init<>());
+
+  py::enum_<SegyFile::Trace::Header::Attribute>(hdr, "Attribute")
+      .value("INLINE_NUMBER", SegyFile::Trace::Header::Attribute::INLINE_NUMBER)
+      .value("CROSSLINE_NUMBER",
+             SegyFile::Trace::Header::Attribute::CROSSLINE_NUMBER)
+      .value("X_COORDINATE", SegyFile::Trace::Header::Attribute::X_COORDINATE)
+      .value("Y_COORDINATE", SegyFile::Trace::Header::Attribute::Y_COORDINATE)
+      .export_values();
 }
 
 void init_stack_file(py::module* m) {
@@ -236,14 +252,6 @@ void init_stack_file(py::module* m) {
     ostr << opts;
     return ostr.str();
   });
-
-  py::enum_<StackFile::SegyOptions::TraceHeaderAttribute>(
-      opts, "TraceHeaderAttribute")
-      .value("INLINE_NUMBER", StackFile::SegyOptions::INLINE_NUMBER)
-      .value("CROSSLINE_NUMBER", StackFile::SegyOptions::CROSSLINE_NUMBER)
-      .value("X_COORDINATE", StackFile::SegyOptions::X_COORDINATE)
-      .value("Y_COORDINATE", StackFile::SegyOptions::Y_COORDINATE)
-      .export_values();
 }
 
 PYBIND11_MODULE(segystack, m) {

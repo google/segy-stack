@@ -100,16 +100,16 @@ std::ostream& operator<<(std::ostream& os, const StackFile::UTMZone& utm) {
 }
 
 std::ostream& operator<<(std::ostream& os, const StackFile::SegyOptions& opts) {
-  using SegyOptions = StackFile::SegyOptions;
+  using Attribute = SegyFile::Trace::Header::Attribute;
   os << "UTM zone: " << opts.getUtmZone() << std::endl;
   os << "Inline number offset: "
-     << opts.getTraceHeaderOffset(SegyOptions::INLINE_NUMBER) << std::endl;
+     << opts.getTraceHeaderOffset(Attribute::INLINE_NUMBER) << std::endl;
   os << "Crossline number offset: "
-     << opts.getTraceHeaderOffset(SegyOptions::CROSSLINE_NUMBER) << std::endl;
+     << opts.getTraceHeaderOffset(Attribute::CROSSLINE_NUMBER) << std::endl;
   os << "X Coordinate offset: "
-     << opts.getTraceHeaderOffset(SegyOptions::X_COORDINATE) << std::endl;
+     << opts.getTraceHeaderOffset(Attribute::X_COORDINATE) << std::endl;
   os << "Y Coordinate offset: "
-     << opts.getTraceHeaderOffset(SegyOptions::Y_COORDINATE) << std::endl;
+     << opts.getTraceHeaderOffset(Attribute::Y_COORDINATE) << std::endl;
   return os;
 }
 
@@ -122,10 +122,10 @@ constexpr int kSegyOffsetMeasurementUnits = 55;
 StackFile::~StackFile() = default;
 
 StackFile::SegyOptions::SegyOptions() {
-  offsets_[X_COORDINATE] = 181;
-  offsets_[Y_COORDINATE] = 185;
-  offsets_[INLINE_NUMBER] = 189;
-  offsets_[CROSSLINE_NUMBER] = 193;
+  offsets_[SegyFile::Trace::Header::Attribute::X_COORDINATE] = 181;
+  offsets_[SegyFile::Trace::Header::Attribute::Y_COORDINATE] = 185;
+  offsets_[SegyFile::Trace::Header::Attribute::INLINE_NUMBER] = 189;
+  offsets_[SegyFile::Trace::Header::Attribute::CROSSLINE_NUMBER] = 193;
 }
 
 StackFile::UTMZone::UTMZone(int zone_num, char zone_char) {
@@ -179,8 +179,9 @@ void StackFile::SegyOptions::setUtmZone(int num, char zone) {
   utm_zone_.setValue(num, zone);
 }
 
-void StackFile::SegyOptions::setTraceHeaderOffset(TraceHeaderAttribute attr,
-                                                  int offset) {
+void StackFile::SegyOptions::setTraceHeaderOffset(
+    SegyFile::Trace::Header::Attribute attr,
+    int offset) {
   if (offset < 1 || offset > 231)
     throw std::runtime_error("Offset specified outside of range [1, 231]");
   offsets_[attr] = offset;
@@ -910,14 +911,18 @@ StackFile::StackFile(const std::string& filename,
     const SegyFile::Trace::Header& header = trace.header();
 
     GridData::Cell* grid_cell = grid_map_->addCell();
-    grid_cell->set_x_coordinate(header.getCoordinateValue(
-        opts.getTraceHeaderOffset(SegyOptions::X_COORDINATE)));
-    grid_cell->set_y_coordinate(header.getCoordinateValue(
-        opts.getTraceHeaderOffset(SegyOptions::Y_COORDINATE)));
-    grid_cell->set_inline_number(header.getValueAtOffset<int32_t>(
-        opts.getTraceHeaderOffset(SegyOptions::INLINE_NUMBER)));
-    grid_cell->set_crossline_number(header.getValueAtOffset<int32_t>(
-        opts.getTraceHeaderOffset(SegyOptions::CROSSLINE_NUMBER)));
+    grid_cell->set_x_coordinate(
+        header.getCoordinateValue(opts.getTraceHeaderOffset(
+            SegyFile::Trace::Header::Attribute::X_COORDINATE)));
+    grid_cell->set_y_coordinate(
+        header.getCoordinateValue(opts.getTraceHeaderOffset(
+            SegyFile::Trace::Header::Attribute::Y_COORDINATE)));
+    grid_cell->set_inline_number(
+        header.getValueAtOffset<int32_t>(opts.getTraceHeaderOffset(
+            SegyFile::Trace::Header::Attribute::INLINE_NUMBER)));
+    grid_cell->set_crossline_number(
+        header.getValueAtOffset<int32_t>(opts.getTraceHeaderOffset(
+            SegyFile::Trace::Header::Attribute::CROSSLINE_NUMBER)));
 
     VLOG(2) << "Cell: " << (*grid_cell) << std::endl;
 

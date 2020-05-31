@@ -132,26 +132,20 @@ class StackFile {
 
   class SegyOptions {
    public:
-    enum TraceHeaderAttribute {
-      INLINE_NUMBER,
-      CROSSLINE_NUMBER,
-      X_COORDINATE,
-      Y_COORDINATE
-    };
-
     SegyOptions();
 
     void setUtmZone(int num, char zone);
     UTMZone getUtmZone() const { return utm_zone_; }
 
-    void setTraceHeaderOffset(TraceHeaderAttribute attr, int offset);
-    int getTraceHeaderOffset(TraceHeaderAttribute attr) const {
+    void setTraceHeaderOffset(SegyFile::Trace::Header::Attribute attr,
+                              int offset);
+    int getTraceHeaderOffset(SegyFile::Trace::Header::Attribute attr) const {
       return offsets_.at(attr);
     }
 
    private:
     UTMZone utm_zone_;
-    std::map<TraceHeaderAttribute, int> offsets_;
+    std::map<SegyFile::Trace::Header::Attribute, int> offsets_;
   };
 
   explicit StackFile(const std::string& filename);
