@@ -64,7 +64,9 @@ void init_stack_file(py::module* m) {
 
   sf.def(py::init<const std::string&, const SegyFile&,
                   const StackFile::SegyOptions&>());
+  sf.def(py::init<const std::string&, const SegyFile&>());
   sf.def(py::init<const std::string&>());
+  sf.def("name", &StackFile::name);
   sf.def("grid", &StackFile::grid, py::return_value_policy::reference);
   sf.def("read_inline",
          [](const StackFile& self, int il,

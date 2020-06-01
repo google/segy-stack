@@ -143,6 +143,8 @@ class StackFile {
       return offsets_.at(attr);
     }
 
+    void setTraceHeaderOffsets(
+        const std::map<SegyFile::Trace::Header::Attribute, int>& offsets);
    private:
     UTMZone utm_zone_;
     std::map<SegyFile::Trace::Header::Attribute, int> offsets_;
@@ -150,11 +152,15 @@ class StackFile {
 
   explicit StackFile(const std::string& filename);
 
+  explicit StackFile(const std::string& filename, const SegyFile& segyfile);
+
   explicit StackFile(const std::string& filename,
                      const SegyFile& segyfile,
                      const SegyOptions& opts);
 
   explicit StackFile(const SegyFile& segyfile, const SegyOptions& opts);
+
+  const std::string& name() const { return filename_; }
 
   const Grid& grid() const;
 
@@ -195,6 +201,9 @@ class StackFile {
   ~StackFile();
 
  private:
+  void createFromSegy(const std::string& filename,
+                      const SegyFile& segyfile,
+                      const SegyOptions& opts);
   void initialize();
   void computeInlineMetadata(internal::StackHeader::SliceMetadata* il_metadata);
   void computeCrosslineMetadata(

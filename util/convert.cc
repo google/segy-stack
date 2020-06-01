@@ -61,7 +61,12 @@ int main(int argc, char* argv[]) {
   if (FLAGS_output_file.IsSpecifiedOnCommandLine())
     outfile = FLAGS_output_file.Get();
 
+  SegyFile segyfile(infile);
+  segyfile.open(std::ios_base::in);
+
   StackFile::SegyOptions opts;
+  opts.setTraceHeaderOffsets(segyfile.guessTraceHeaderOffsets());
+
   if (FLAGS_il_offset.IsSpecifiedOnCommandLine()) {
     opts.setTraceHeaderOffset(SegyFile::Trace::Header::Attribute::INLINE_NUMBER,
                               FLAGS_il_offset.Get());
@@ -89,9 +94,6 @@ int main(int argc, char* argv[]) {
   }
 
   std::cout << "convert options: " << std::endl << opts << std::endl;
-
-  SegyFile segyfile(infile);
-  segyfile.open(std::ios_base::in);
 
   StackFile stkFile(outfile, segyfile, opts);
 

@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-
 #include "segy_file.h"
 
 #include <algorithm>
@@ -52,6 +51,32 @@ constexpr int kSegyTextHeaderLineWidth = 80;
 constexpr int kSegyBinHdrSamplingIntOffset = 17;
 constexpr int kSegyBinHdrSegyMajorOffset = 301;
 constexpr int kSegyBinHdrSegyMinorOffset = 302;
+
+const std::vector<int> kSegyHeaderXCoordCandidateOffsets = {
+    181,  // X coordinate of ensemble (CDP) position of this trace.
+    73,   // Source coordinate - X.
+    201,  // Non-standard but often used.
+};
+
+const std::vector<int> kSegyHeaderYCoordCandidateOffsets = {
+    185,  // Y coordinate of ensemble (CDP) position of this trace.
+    77,   // Source coordinate - Y.
+    205,  // Non-standard but often used.
+};
+
+const std::vector<int> kSegyHeaderInlineCandidateOffsets = {
+    189,  // For 3-D poststack data, this field should be used for the in-line
+          // number.
+    213,  // Non-standard but often used.
+    9,    // Original field record number.
+};
+
+const std::vector<int> kSegyHeaderCrosslineCandidateOffsets = {
+    193,  // For 3-D poststack data, this field should be used for the
+          // cross-line number.
+    217,  // Non-standard but often used.
+    21,   // Ensemble number (i.e. CDP, CMP, CRP, etc).
+};
 
 // https://www.ibm.com/support/knowledgecenter/SS2MB5_14.1.0/com.ibm.xlf141.bg.doc/language_ref/asciit.html
 const std::map<unsigned char, char> kEBCDICtoASCIImap = {
@@ -110,6 +135,72 @@ SegyFile::SegyFile(const std::string& filename)
       trc_ptr_(nullptr),
       cur_offset_(0) {
   file_ = MmapFile::Create(filename);
+}
+
+std::map<SegyFile::Trace::Header::Attribute, int>
+SegyFile::guessTraceHeaderOffsets() const {
+  if (!is_open()) {
+    throw std::runtime_error("File " + name() + " not opened for reading!");
+  }
+
+  std::uint64_t prev_offset = cur_offset_;
+
+  Trace trace1, trace2;
+  seek(0);
+  read(trace1);
+  seek(1);
+  read(trace2);
+
+  // restore back to where we were.
+  seek(prev_offset);
+
+  const Trace::Header& header1 = trace1.header();
+  const Trace::Header& header2 = trace2.header();
+
+  std::cout << "header1 = " << header1 << std::endl;
+  std::cout << "header2 = " << header2 << std::endl;
+
+  CHECK_EQ(kSegyHeaderXCoordCandidateOffsets.size(),
+           kSegyHeaderYCoordCandidateOffsets.size());
+
+  std::map<Trace::Header::Attribute, int> offsets;
+
+  for (size_t i = 0; i < kSegyHeaderXCoordCandidateOffsets.size(); i++) {
+    int x_offset = kSegyHeaderXCoordCandidateOffsets[i];
+    int y_offset = kSegyHeaderYCoordCandidateOffsets[i];
+
+    float x_coord1 = header1.getCoordinateValue(x_offset);
+    float y_coord1 = header1.getCoordinateValue(y_offset);
+    float x_coord2 = header2.getCoordinateValue(x_offset);
+    float y_coord2 = header2.getCoordinateValue(y_offset);
+
+    if ((x_coord1 != x_coord2) || (y_coord1 != y_coord2)) {
+      offsets[Trace::Header::Attribute::X_COORDINATE] = x_offset;
+      offsets[Trace::Header::Attribute::Y_COORDINATE] = y_offset;
+      break;
+    }
+  }
+
+  CHECK_EQ(kSegyHeaderInlineCandidateOffsets.size(),
+           kSegyHeaderCrosslineCandidateOffsets.size());
+
+  for (size_t i = 0; i < kSegyHeaderInlineCandidateOffsets.size(); i++) {
+    int il_offset = kSegyHeaderInlineCandidateOffsets[i];
+    int xl_offset = kSegyHeaderCrosslineCandidateOffsets[i];
+
+    int32_t il1 = header1.getValueAtOffset<int32_t>(il_offset);
+    int32_t xl1 = header1.getValueAtOffset<int32_t>(xl_offset);
+    int32_t il2 = header2.getValueAtOffset<int32_t>(il_offset);
+    int32_t xl2 = header2.getValueAtOffset<int32_t>(xl_offset);
+
+    if ((il1 != il2) || (xl1 != xl2)) {
+      offsets[Trace::Header::Attribute::INLINE_NUMBER] = il_offset;
+      offsets[Trace::Header::Attribute::CROSSLINE_NUMBER] = xl_offset;
+      break;
+    }
+  }
+
+  return offsets;
 }
 
 void SegyFile::open(std::ios_base::openmode mode) {
@@ -173,8 +264,9 @@ void SegyFile::seek(std::uint64_t offset) const {
   checkFileOpened();
   SegyFile* self = const_cast<SegyFile*>(this);
 
-  self->hdr_ptr_ = first_hdr_ptr_ + offset * (sizeof(Trace::Header) +
-                                        sizeof(float) * num_samples_per_trc_);
+  self->hdr_ptr_ =
+      first_hdr_ptr_ +
+      offset * (sizeof(Trace::Header) + sizeof(float) * num_samples_per_trc_);
   self->trc_ptr_ = hdr_ptr_ + sizeof(Trace::Header);
   self->cur_offset_ = offset;
 }
@@ -267,6 +359,28 @@ void SegyFile::BinaryHeader::print(std::ostream& os) const {
 
 void SegyFile::Trace::Header::print(std::ostream& os) const {
   os << std::endl;
+
+  os << "Possible inline/crossline locations: " << std::endl;
+  for (size_t i = 0; i < kSegyHeaderInlineCandidateOffsets.size(); i++) {
+    int il_offset = kSegyHeaderInlineCandidateOffsets[i];
+    int xl_offset = kSegyHeaderCrosslineCandidateOffsets[i];
+
+    int32_t il = getValueAtOffset<int32_t>(il_offset);
+    int32_t xl = getValueAtOffset<int32_t>(xl_offset);
+    os << "Offset (" << il_offset << ", " << xl_offset << ") -> (" << il << ", "
+       << xl << ")" << std::endl;
+  }
+
+  os << std::endl << "Possible coordinate locations: " << std::endl;
+  for (size_t i = 0; i < kSegyHeaderXCoordCandidateOffsets.size(); i++) {
+    int x_offset = kSegyHeaderXCoordCandidateOffsets[i];
+    int y_offset = kSegyHeaderYCoordCandidateOffsets[i];
+
+    float x_coord = getCoordinateValue(x_offset);
+    float y_coord = getCoordinateValue(y_offset);
+    os << "Offset (" << x_offset << ", " << y_offset << ") -> (" << x_coord
+       << ", " << y_coord << ")" << std::endl;
+  }
 }
 
 void SegyFile::checkFileOpened() const {

@@ -122,10 +122,18 @@ constexpr int kSegyOffsetMeasurementUnits = 55;
 StackFile::~StackFile() = default;
 
 StackFile::SegyOptions::SegyOptions() {
+  // Set defaults based on the SEGY standard.
   offsets_[SegyFile::Trace::Header::Attribute::X_COORDINATE] = 181;
   offsets_[SegyFile::Trace::Header::Attribute::Y_COORDINATE] = 185;
   offsets_[SegyFile::Trace::Header::Attribute::INLINE_NUMBER] = 189;
   offsets_[SegyFile::Trace::Header::Attribute::CROSSLINE_NUMBER] = 193;
+}
+
+void StackFile::SegyOptions::setTraceHeaderOffsets(
+    const std::map<SegyFile::Trace::Header::Attribute, int>& offsets) {
+  for (const auto& it : offsets) {
+    setTraceHeaderOffset(it.first, it.second);
+  }
 }
 
 StackFile::UTMZone::UTMZone(int zone_num, char zone_char) {
@@ -858,9 +866,26 @@ StackFile::StackFile(const std::string& filename) : filename_(filename) {
   initialize();
 }
 
+StackFile::StackFile(const std::string& filename, const SegyFile& segyfile) {
+  SegyOptions opts;
+  opts.setTraceHeaderOffsets(segyfile.guessTraceHeaderOffsets());
+
+  createFromSegy(filename, segyfile, opts);
+
+  initialize();
+}
+
 StackFile::StackFile(const std::string& filename,
                      const SegyFile& segyfile,
                      const SegyOptions& opts) {
+  createFromSegy(filename, segyfile, opts);
+
+  initialize();
+}
+
+void StackFile::createFromSegy(const std::string& filename,
+                               const SegyFile& segyfile,
+                               const SegyOptions& opts) {
   TIMEIT;
   if (!segyfile.is_open() || !(segyfile.open_mode() & std::ios_base::in)) {
     throw std::runtime_error("SegyFile " + segyfile.name() +
@@ -987,8 +1012,6 @@ StackFile::StackFile(const std::string& filename,
   }
 
   hdr_fp.close();
-
-  initialize();
 }
 
 void StackFile::initialize() {

@@ -20,6 +20,7 @@
 #include <cstdint>
 #include <cstdlib>
 #include <iostream>
+#include <map>
 #include <vector>
 
 #include "mmap_file.h"
@@ -107,7 +108,7 @@ class SegyFile {
    public:
     // The SEG Y trace header contains trace attributes.
     class Header {
-      public:
+     public:
       enum class Attribute {
         INLINE_NUMBER,
         CROSSLINE_NUMBER,
@@ -148,6 +149,8 @@ class SegyFile {
   const std::string& name() const { return file_->name(); }
 
   void close();
+
+  std::map<Trace::Header::Attribute, int> guessTraceHeaderOffsets() const;
 
   const TextHeader& getTextHeader() const;
   void setTextHeader(const TextHeader& header);
