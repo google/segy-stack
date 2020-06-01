@@ -110,6 +110,7 @@ std::ostream& operator<<(std::ostream& os, const StackFile::SegyOptions& opts) {
      << opts.getTraceHeaderOffset(Attribute::X_COORDINATE) << std::endl;
   os << "Y Coordinate offset: "
      << opts.getTraceHeaderOffset(Attribute::Y_COORDINATE) << std::endl;
+  os << "Is 2D: " << opts.is2D() << std::endl;
   return os;
 }
 
@@ -121,7 +122,7 @@ constexpr int kSegyOffsetMeasurementUnits = 55;
 
 StackFile::~StackFile() = default;
 
-StackFile::SegyOptions::SegyOptions() {
+StackFile::SegyOptions::SegyOptions() : is_2d_(false) {
   // Set defaults based on the SEGY standard.
   offsets_[SegyFile::Trace::Header::Attribute::X_COORDINATE] = 181;
   offsets_[SegyFile::Trace::Header::Attribute::Y_COORDINATE] = 185;
@@ -942,12 +943,19 @@ void StackFile::createFromSegy(const std::string& filename,
     grid_cell->set_y_coordinate(
         header.getCoordinateValue(opts.getTraceHeaderOffset(
             SegyFile::Trace::Header::Attribute::Y_COORDINATE)));
-    grid_cell->set_inline_number(
-        header.getValueAtOffset<int32_t>(opts.getTraceHeaderOffset(
-            SegyFile::Trace::Header::Attribute::INLINE_NUMBER)));
-    grid_cell->set_crossline_number(
-        header.getValueAtOffset<int32_t>(opts.getTraceHeaderOffset(
-            SegyFile::Trace::Header::Attribute::CROSSLINE_NUMBER)));
+
+    // If 2D or treating as 2D just re-number for a 2D grid.
+    if (opts.is2D()) {
+      grid_cell->set_inline_number(1);
+      grid_cell->set_crossline_number(num_traces_read + 1);
+    } else {
+      grid_cell->set_inline_number(
+          header.getValueAtOffset<int32_t>(opts.getTraceHeaderOffset(
+              SegyFile::Trace::Header::Attribute::INLINE_NUMBER)));
+      grid_cell->set_crossline_number(
+          header.getValueAtOffset<int32_t>(opts.getTraceHeaderOffset(
+              SegyFile::Trace::Header::Attribute::CROSSLINE_NUMBER)));
+    }
 
     VLOG(2) << "Cell: " << (*grid_cell) << std::endl;
 

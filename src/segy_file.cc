@@ -157,8 +157,8 @@ SegyFile::guessTraceHeaderOffsets() const {
   const Trace::Header& header1 = trace1.header();
   const Trace::Header& header2 = trace2.header();
 
-  std::cout << "header1 = " << header1 << std::endl;
-  std::cout << "header2 = " << header2 << std::endl;
+  LOGFN_VAR(header1);
+  LOGFN_VAR(header2);
 
   CHECK_EQ(kSegyHeaderXCoordCandidateOffsets.size(),
            kSegyHeaderYCoordCandidateOffsets.size());

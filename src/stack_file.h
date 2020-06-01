@@ -145,9 +145,14 @@ class StackFile {
 
     void setTraceHeaderOffsets(
         const std::map<SegyFile::Trace::Header::Attribute, int>& offsets);
+
+    bool is2D() const { return is_2d_; }
+    void setIs2D(bool value) { is_2d_ = value; }
+
    private:
     UTMZone utm_zone_;
     std::map<SegyFile::Trace::Header::Attribute, int> offsets_;
+    bool is_2d_;
   };
 
   explicit StackFile(const std::string& filename);

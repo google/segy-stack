@@ -30,6 +30,7 @@ ABSL_FLAG(int, xl_offset, 193, "Crossline number byte offset");
 ABSL_FLAG(int, x_coord_offset, 181, "X coordinate byte offset");
 ABSL_FLAG(int, y_coord_offset, 185, "Y coordinate byte offset");
 ABSL_FLAG(int, utm_zone_num, 32, "UTM Zone number");
+ABSL_FLAG(bool, is_2d, false, "The input file is a 2D dataset.");
 ABSL_FLAG(std::string, utm_zone_letter, "U", "UTM Zone letter");
 ABSL_FLAG(bool, enable_crossline_opt, false, "Enable fast crossline access");
 ABSL_FLAG(bool, enable_depth_opt, false, "Enable fast depth slice access");
@@ -91,6 +92,10 @@ int main(int argc, char* argv[]) {
   if (FLAGS_utm_zone_num.IsSpecifiedOnCommandLine() &&
       FLAGS_utm_zone_letter.IsSpecifiedOnCommandLine()) {
     opts.setUtmZone(FLAGS_utm_zone_num.Get(), FLAGS_utm_zone_letter.Get()[0]);
+  }
+
+  if (FLAGS_is_2d.IsSpecifiedOnCommandLine()) {
+    opts.setIs2D(FLAGS_is_2d.Get());
   }
 
   std::cout << "convert options: " << std::endl << opts << std::endl;
