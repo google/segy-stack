@@ -456,8 +456,8 @@ class StackFile::GridMap {
     float theta = std::atan2(y_dist, x_dist);
 
     // The four corners in the local coordinate system around the origin.
-    Grid::Coordinate c1_r(-origin_xl_idx * grid_data_.crossline_spacing(),
-                          -origin_il_idx * grid_data_.inline_spacing());
+    Grid::Coordinate c1_r(-1.0 * origin_xl_idx * grid_data_.crossline_spacing(),
+                          -1.0 * origin_il_idx * grid_data_.inline_spacing());
 
     Grid::Coordinate c2_r((getNumCrosslines() - origin_xl_idx - 1) *
                               grid_data_.crossline_spacing(),
