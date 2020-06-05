@@ -47,6 +47,7 @@ namespace {
 constexpr int kSegyNumSamplesPerTrcOffset = 21;
 constexpr int kSegyNumExtendedHdsOffset = 305;
 constexpr int kSegyIEEEDataFormatCode = 5;
+constexpr int kSegyIBMFloatDataFormatCode = 1;
 constexpr int kSegyTextHeaderLineWidth = 80;
 constexpr int kSegyBinHdrSamplingIntOffset = 17;
 constexpr int kSegyBinHdrSegyMajorOffset = 301;
@@ -295,10 +296,12 @@ bool SegyFile::read(Trace& trace) const {
 
   if (sample_format_code == kSegyIEEEDataFormatCode) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
-    std::transform(
-        samples.begin(), samples.end(), samples.begin(),
-        [](float a) -> float { return fix_endianness_if_needed(a); });
+    std::transform(samples.begin(), samples.end(), samples.begin(),
+                   [](float a) -> float { return swap_endianness(a); });
 #endif
+  } else if (sample_format_code == kSegyIBMFloatDataFormatCode) {
+    std::transform(samples.begin(), samples.end(), samples.begin(),
+                   [](float a) -> float { return ibm_to_ieee(a, true); });
   } else {
     throw std::runtime_error("Segy: read: Data format not supported : " +
                              std::to_string(sample_format_code));

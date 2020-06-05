@@ -23,6 +23,7 @@
 #include <map>
 #include <vector>
 
+#include "float_util.h"
 #include "mmap_file.h"
 
 #ifdef __APPLE__
@@ -32,25 +33,6 @@
 #endif
 
 namespace segystack {
-
-template <typename T>
-T swap_endianness(T value) {
-  const int num_bytes = sizeof(T);
-  char* bytes = reinterpret_cast<char*>(&value);
-
-  for (int i = 0; i < num_bytes / 2; i++) {
-    std::swap(bytes[i], bytes[num_bytes - 1 - i]);
-  }
-  return value;
-}
-
-template <typename T>
-T fix_endianness_if_needed(T value) {
-#if __BYTE_ORDER == __LITTLE_ENDIAN
-  value = swap_endianness(value);
-#endif
-  return value;
-}
 
 // Reads and writes SEGY files.
 // http://seg.org/Portals/0/SEG/News%20and%20Resources/Technical%20Standards/seg_y_rev1.pdf
