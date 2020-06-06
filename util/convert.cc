@@ -65,6 +65,9 @@ int main(int argc, char* argv[]) {
   SegyFile segyfile(infile);
   segyfile.open(std::ios_base::in);
 
+  std::cout << segyfile.getTextHeader() << std::endl;
+  std::cout << segyfile.getBinaryHeader() << std::endl;
+
   StackFile::SegyOptions opts;
   opts.setTraceHeaderOffsets(segyfile.guessTraceHeaderOffsets());
 
@@ -98,13 +101,17 @@ int main(int argc, char* argv[]) {
     opts.setIs2D(FLAGS_is_2d.Get());
   }
 
-  std::cout << "convert options: " << std::endl << opts << std::endl;
+  std::cout << std::endl
+            << "convert options: " << std::endl
+            << opts << std::endl;
 
   StackFile stkFile(outfile, segyfile, opts);
 
   segyfile.close();
 
-  std::cout << stkFile.grid() << std::endl;
+  std::cout << std::endl
+            << "Grid: " << std::endl
+            << stkFile.grid() << std::endl;
 
   if (FLAGS_enable_crossline_opt.IsSpecifiedOnCommandLine())
     stkFile.setCrosslineAccessOptimization(FLAGS_enable_crossline_opt.Get());

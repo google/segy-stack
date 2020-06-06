@@ -201,6 +201,20 @@ SegyFile::guessTraceHeaderOffsets() const {
     }
   }
 
+  auto check_offset_exists = [&](Trace::Header::Attribute attr,
+                                 const std::string& attr_name) {
+    if (offsets.find(attr) == offsets.end()) {
+      std::cout << "Warning: Could not guess the location of " << attr_name
+                << " in the trace header!" << std::endl;
+    }
+  };
+
+  check_offset_exists(Trace::Header::Attribute::INLINE_NUMBER, "inline number");
+  check_offset_exists(Trace::Header::Attribute::CROSSLINE_NUMBER,
+                      "crossline number");
+  check_offset_exists(Trace::Header::Attribute::X_COORDINATE, "X coordinate");
+  check_offset_exists(Trace::Header::Attribute::Y_COORDINATE, "Y coordinate");
+
   return offsets;
 }
 

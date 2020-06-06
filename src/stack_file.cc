@@ -431,7 +431,7 @@ class StackFile::GridMap {
         }
       }
 
-      if (c1 && c2 && (c1 != c2)) {
+      if (c1 && c2) {
         float dist = computeDistBetweenCells(*c1, *c2);
         if (dist > max_len_il) {
           max_len_il = dist;
@@ -441,6 +441,13 @@ class StackFile::GridMap {
           support = c2;
         }
       }
+    }
+
+    if (origin == support) {
+      std::cout << "Warning: The traces are missing coordinate information. A "
+                   "bounding box could not be computed."
+                << std::endl;
+      return bbox;
     }
 
     CHECK_NOTNULL(origin);
@@ -971,7 +978,23 @@ void StackFile::createFromSegy(const std::string& filename,
   inline_bin_file.close();
 
   grid_map_->RecomputeGrid();
+
   (*grid_data) = grid_map_->gridData();
+
+  uint64_t num_bins_in_grid = uint64_t(grid_map_->getNumInlines()) *
+                              uint64_t(grid_map_->getNumCrosslines());
+
+  if (num_traces_read > num_bins_in_grid) {
+    std::ostringstream ostr;
+    ostr << "Error: Number of bins in grid is less than the number of traces "
+            "read!"
+         << std::endl
+         << "Could not find valid inline/crossline numbers in file "
+         << segyfile.name() << "!" << std::endl
+         << "Computed grid:" << std::endl
+         << (*grid_data) << std::endl;
+    throw std::runtime_error(ostr.str());
+  }
 
   computeInlineMetadata(inline_metadata);
 
