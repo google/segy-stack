@@ -76,6 +76,9 @@ class TestStackFile:
 
         sgy = SegyFile(sgy_file)
         sgy.open("r")
+        offsets = sgy.guess_trace_header_offsets()
+        opts.set_trace_header_offsets(offsets)
+
         outfile = "/tmp/out.stack"
         sf = StackFile(outfile, sgy, opts)
         sgy.close()

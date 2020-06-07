@@ -41,6 +41,7 @@ void init_segy_file(py::module* m) {
   });
   sgy.def("name", &SegyFile::name);
   sgy.def("close", &SegyFile::close);
+  sgy.def("guess_trace_header_offsets", &SegyFile::guessTraceHeaderOffsets);
 
   py::class_<SegyFile::Trace> trace(sgy, "Trace");
   trace.def(py::init<>());
@@ -247,6 +248,8 @@ void init_stack_file(py::module* m) {
   opts.def("utm_zone", &StackFile::SegyOptions::getUtmZone);
   opts.def("set_trace_header_offset",
            &StackFile::SegyOptions::setTraceHeaderOffset);
+  opts.def("set_trace_header_offsets",
+           &StackFile::SegyOptions::setTraceHeaderOffsets);
   opts.def("trace_header_offset",
            &StackFile::SegyOptions::getTraceHeaderOffset);
   opts.def("__repr__", [](const StackFile::SegyOptions& opts) {
