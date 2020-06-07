@@ -7,3 +7,6 @@
 [submodule "third_party/glog"]
 	path = third_party/glog
 	url = https://github.com/google/glog.git
+[submodule "third_party/PROJ"]
+	path = third_party/PROJ
+	url = https://github.com/OSGeo/PROJ.git
