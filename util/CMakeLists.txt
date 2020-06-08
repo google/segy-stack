@@ -18,4 +18,11 @@ set(UTIL_BINARY ${CMAKE_PROJECT_NAME}_convert)
 
 add_executable(${UTIL_BINARY} ${UTIL_SOURCES})
 
-target_link_libraries(${UTIL_BINARY} PUBLIC ${CMAKE_PROJECT_NAME} absl::flags absl::flags_parse ${Protobuf_LIBRARIES} glog::glog )
+target_link_libraries(${UTIL_BINARY} PUBLIC ${CMAKE_PROJECT_NAME} ${PROJ_LIBRARIES}
+                      absl::flags absl::flags_parse ${Protobuf_LIBRARIES} glog::glog)
+
+install(TARGETS ${UTIL_BINARY}
+        RUNTIME DESTINATION bin
+        PERMISSIONS OWNER_EXECUTE OWNER_WRITE OWNER_READ
+                    GROUP_EXECUTE GROUP_READ
+                    WORLD_READ WORLD_EXECUTE)

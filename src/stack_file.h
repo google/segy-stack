@@ -21,6 +21,7 @@
 #include <string>
 #include <utility>
 
+#include "crs_util.h"
 #include "mmap_file.h"
 #include "segy_file.h"
 #include "stack_types.pb.h"
@@ -28,25 +29,9 @@
 namespace segystack {
 
 class StackFile {
+  class GridMap;
+
  public:
-  class UTMZone {
-   public:
-    UTMZone(int zone_num = 32, char zone_char = 'U');  // default UTM Zone.
-
-    std::pair<int, char> value() const;
-    void setValue(int zone_num, char zone_char);
-
-    int number() const;
-    void setNumber(int zone_num);
-
-    char letter() const;
-    void setLetter(char zone_char);
-
-   private:
-    friend class StackFile;
-    internal::UTMZone utm_;
-  };
-
   class Grid {
    public:
     enum Units { METERS = 0, FEET = 1 };
@@ -105,11 +90,23 @@ class StackFile {
     uint32_t numSamples() const;
     void setNumSamples(uint32_t value);
 
+    bool isBinActive(int32_t inline_num, int32_t crossline_num) const;
+
     struct Coordinate {
       float x, y;
-      Coordinate() : x(0), y(0) {}
-      Coordinate(float x, float y) : x(x), y(y) {}
+      int32_t inline_num, crossline_num;
+      float lat, lon;
+      Coordinate()
+          : x(0), y(0), inline_num(0), crossline_num(0), lat(0), lon(0) {}
+      Coordinate(float x, float y)
+          : x(x), y(y), inline_num(0), crossline_num(0), lat(0), lon(0) {}
+      Coordinate(float x, float y, int32_t il, int32_t xl)
+          : x(x), y(y), inline_num(il), crossline_num(xl), lat(0), lon(0) {}
+      Coordinate(float x, float y, int32_t il, int32_t xl, float lat, float lon)
+          : x(x), y(y), inline_num(il), crossline_num(xl), lat(lat), lon(lon) {}
     };
+
+    Coordinate getCoordinate(int32_t inline_num, int32_t crossline_num) const;
 
     struct BoundingBox {
       Coordinate c1, c2, c3, c4;
@@ -118,16 +115,15 @@ class StackFile {
     BoundingBox boundingBox() const;
 
    protected:
-    Grid(const internal::GridData& data,
-         const internal::UTMZone& utm,
-         const BoundingBox& bbox);
     friend class StackFile;
     friend std::ostream& operator<<(std::ostream& os,
                                     const segystack::StackFile::Grid& grid);
 
+    Grid(const GridMap* grid_map, const UTMZone& utm);
+    const GridMap* grid_map_;
+    UTMZone utm_zone_;
     internal::GridData grid_data_;
-    internal::UTMZone utm_zone_;
-    BoundingBox bbox_;
+    std::unique_ptr<UTMZoneConverter> utm_converter_;
   };
 
   class SegyOptions {
@@ -230,7 +226,6 @@ class StackFile {
                                     float* buffer,
                                     size_t buffer_size) const;
 
-  class GridMap;
   std::string filename_;
   std::unique_ptr<internal::StackHeader> header_;
   std::unique_ptr<GridMap> grid_map_;
@@ -245,7 +240,6 @@ std::ostream& operator<<(std::ostream& os,
                          const StackFile::Grid::BoundingBox& bbox);
 std::ostream& operator<<(std::ostream& os,
                          const StackFile::Grid::Coordinate& coord);
-std::ostream& operator<<(std::ostream& os, const StackFile::UTMZone& utm);
 std::ostream& operator<<(std::ostream& os, const StackFile::SegyOptions& opts);
 
 }  // namespace segystack

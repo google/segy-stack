@@ -204,8 +204,8 @@ SegyFile::guessTraceHeaderOffsets() const {
   auto check_offset_exists = [&](Trace::Header::Attribute attr,
                                  const std::string& attr_name) {
     if (offsets.find(attr) == offsets.end()) {
-      std::cout << "Warning: Could not guess the location of " << attr_name
-                << " in the trace header!" << std::endl;
+      LOG(WARNING) << "Warning: Could not guess the location of " << attr_name
+                   << " in the trace header!" << std::endl;
     }
   };
 

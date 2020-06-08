@@ -16,7 +16,7 @@
 
 import pytest
 
-from segystack import StackFile
+from segystack import StackFile, UTMZone
 
 class TestGrid:
     def test_init(self):
@@ -30,7 +30,7 @@ class TestGrid:
         print(g)
 
     def test_types(self):
-        utm = StackFile.UTMZone()
+        utm = UTMZone()
         utm.letter = "H"
         utm.number = 38
         print(utm)

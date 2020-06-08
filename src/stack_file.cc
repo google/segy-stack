@@ -69,20 +69,22 @@ std::ostream& operator<<(std::ostream& os, const StackFile::Grid& grid) {
   os << "XL num: " << grid.numCrosslines() << std::endl;
   os << grid.grid_data_;
   os << "UTM Zone: " << grid.utm_zone_ << std::endl;
-  os << "Bounding box: " << grid.bbox_ << std::endl;
+  os << "Bounding box: " << grid.boundingBox() << std::endl;
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os,
                          const StackFile::Grid::Coordinate& coord) {
-  os << "(" << coord.x << ", " << coord.y << ")";
+  os << "X/Y(" << coord.x << ", " << coord.y << "), IL/XL(" << coord.inline_num
+     << ", " << coord.crossline_num << "), Lat/Lon(" << coord.lat << ", "
+     << coord.lon << ")";
   return os;
 }
 
 std::ostream& operator<<(std::ostream& os,
                          const StackFile::Grid::BoundingBox& bbox) {
-  os << std::endl << "C3 " << bbox.c3 << "\t---\tC4 " << bbox.c4;
-  os << std::endl << "C1 " << bbox.c1 << "\t---\tC2 " << bbox.c2 << std::endl;
+  os << std::endl << "C3: " << bbox.c3 << "\t---\tC4: " << bbox.c4;
+  os << std::endl << "C1: " << bbox.c1 << "\t---\tC2: " << bbox.c2 << std::endl;
   return os;
 }
 
@@ -91,11 +93,6 @@ std::ostream& operator<<(std::ostream& os, const GridData::Cell& cell) {
      << cell.y_coordinate() << ")" << std::endl;
   os << "Grid numbers (IL, XL) : (" << cell.inline_number() << ", "
      << cell.crossline_number() << ")" << std::endl;
-  return os;
-}
-
-std::ostream& operator<<(std::ostream& os, const StackFile::UTMZone& utm) {
-  os << utm.value().first << " " << utm.value().second;
   return os;
 }
 
@@ -135,53 +132,6 @@ void StackFile::SegyOptions::setTraceHeaderOffsets(
   for (const auto& it : offsets) {
     setTraceHeaderOffset(it.first, it.second);
   }
-}
-
-StackFile::UTMZone::UTMZone(int zone_num, char zone_char) {
-  setValue(zone_num, zone_char);
-}
-
-std::pair<int, char> StackFile::UTMZone::value() const {
-  return std::make_pair(int(utm_.number()), letter());
-}
-
-int StackFile::UTMZone::number() const {
-  return utm_.number();
-}
-
-void StackFile::UTMZone::setNumber(int zone_num) {
-  setValue(zone_num, letter());
-}
-
-char StackFile::UTMZone::letter() const {
-  return utm_.letter()[0];
-}
-
-void StackFile::UTMZone::setLetter(char zone_char) {
-  setValue(number(), zone_char);
-}
-
-void StackFile::UTMZone::setValue(int zone_num, char zone_char) {
-  if (zone_num < 1 || zone_num > 60)
-    throw std::runtime_error("UTM zone number should be in range [1, 60]");
-
-  std::string letter(1, std::toupper(zone_char));
-  std::set<char> zones;
-  const std::set<char> forbidden = {'A', 'B', 'Y', 'Z', 'I', 'O'};
-  for (char c = 'A'; c <= 'Z'; c++) {
-    if (forbidden.find(c) == forbidden.end())
-      zones.insert(c);
-  }
-
-  if (zones.find(letter[0]) == zones.end()) {
-    std::ostringstream ostr;
-    for (char c : zones)
-      ostr << c << ", ";
-    throw std::runtime_error("UTM zone letter should be one of " + ostr.str());
-  }
-
-  utm_.set_number(zone_num);
-  utm_.set_letter(letter.c_str());
 }
 
 void StackFile::SegyOptions::setUtmZone(int num, char zone) {
@@ -312,6 +262,16 @@ class StackFile::GridMap {
     return false;
   }
 
+  const GridData::Cell* getCell(int il, int xl) const {
+    try {
+      return cell_map_.at(getInlineIdx(il)).at(getCrosslineIdx(xl));
+    } catch (const std::out_of_range& e) {
+      DLOG(INFO) << __FUNCTION__ << ": (" << il << ", " << xl
+                 << ") out of bounds";
+    }
+    return nullptr;
+  }
+
   void setInlineDataAddress(const char* trc_addr) {
     size_t num_trace_bytes = sizeof(float) * grid_data_.num_samples();
 
@@ -374,7 +334,8 @@ class StackFile::GridMap {
       // Single cell case.
       const GridData::Cell* cell = cell_map_[0][0];
       CHECK_NOTNULL(cell);
-      Grid::Coordinate c(cell->x_coordinate(), cell->y_coordinate());
+      Grid::Coordinate c(cell->x_coordinate(), cell->y_coordinate(),
+                         grid_data_.inline_min(), grid_data_.crossline_min());
       bbox.c1 = c;
       bbox.c2 = c;
       bbox.c3 = c;
@@ -386,8 +347,10 @@ class StackFile::GridMap {
       const GridData::Cell* cell2 = cell_map_[0][getNumCrosslines() - 1];
       CHECK_NOTNULL(cell1);
       CHECK_NOTNULL(cell2);
-      Grid::Coordinate c1(cell1->x_coordinate(), cell1->y_coordinate());
-      Grid::Coordinate c2(cell2->x_coordinate(), cell2->y_coordinate());
+      Grid::Coordinate c1(cell1->x_coordinate(), cell1->y_coordinate(),
+                          grid_data_.inline_min(), grid_data_.crossline_min());
+      Grid::Coordinate c2(cell2->x_coordinate(), cell2->y_coordinate(),
+                          grid_data_.inline_min(), grid_data_.crossline_max());
       bbox.c1 = c1;
       bbox.c3 = c1;
       bbox.c2 = c2;
@@ -399,8 +362,10 @@ class StackFile::GridMap {
       const GridData::Cell* cell2 = cell_map_[getNumInlines() - 1][0];
       CHECK_NOTNULL(cell1);
       CHECK_NOTNULL(cell2);
-      Grid::Coordinate c1(cell1->x_coordinate(), cell1->y_coordinate());
-      Grid::Coordinate c3(cell2->x_coordinate(), cell2->y_coordinate());
+      Grid::Coordinate c1(cell1->x_coordinate(), cell1->y_coordinate(),
+                          grid_data_.inline_min(), grid_data_.crossline_min());
+      Grid::Coordinate c3(cell2->x_coordinate(), cell2->y_coordinate(),
+                          grid_data_.inline_max(), grid_data_.crossline_min());
       bbox.c1 = c1;
       bbox.c3 = c3;
       bbox.c2 = c1;
@@ -443,58 +408,67 @@ class StackFile::GridMap {
       }
     }
 
-    if (origin == support) {
-      std::cout << "Warning: The traces are missing coordinate information. A "
-                   "bounding box could not be computed."
-                << std::endl;
-      return bbox;
+    Grid::Coordinate c1_r, c2_r, c3_r, c4_r;
+    float theta = 0.0f;
+
+    if (origin == nullptr || support == nullptr ||
+        computeDistBetweenCells(*origin, *support) == 0.0f) {
+      LOG(WARNING) << "Warning: The traces are missing coordinate information. "
+                      "The bounding box will not have coordinate information."
+                   << std::endl;
+    } else {
+      CHECK_NOTNULL(origin);
+      CHECK_NOTNULL(support);
+
+      LOGFN_VAR(*origin);
+      LOGFN_VAR(*support);
+
+      float x_dist = support->x_coordinate() - origin->x_coordinate();
+      float y_dist = support->y_coordinate() - origin->y_coordinate();
+
+      CHECK_NE(std::abs(x_dist) == 0.0f && std::abs(y_dist) == 0.0f, true);
+
+      theta = std::atan2(y_dist, x_dist);
+
+      // The four corners in the local coordinate system around the origin.
+      c1_r.x = -1.0 * origin_xl_idx * grid_data_.crossline_spacing();
+      c1_r.y = -1.0 * origin_il_idx * grid_data_.inline_spacing();
+
+      c2_r.x = (getNumCrosslines() - origin_xl_idx - 1) *
+               grid_data_.crossline_spacing();
+      c2_r.y = c1_r.y;
+
+      c3_r.x = c1_r.x;
+      c3_r.y =
+          (getNumInlines() - origin_il_idx - 1) * grid_data_.inline_spacing();
+
+      c4_r.x = c2_r.x;
+      c4_r.y = c3_r.y;
     }
 
-    CHECK_NOTNULL(origin);
-    CHECK_NOTNULL(support);
-
-    LOGFN_VAR(*origin);
-    LOGFN_VAR(*support);
-
-    float x_dist = support->x_coordinate() - origin->x_coordinate();
-    float y_dist = support->y_coordinate() - origin->y_coordinate();
-
-    CHECK_NE(std::abs(x_dist) == 0.0f && std::abs(y_dist) == 0.0f, true);
-
-    float theta = std::atan2(y_dist, x_dist);
-
-    // The four corners in the local coordinate system around the origin.
-    Grid::Coordinate c1_r(-1.0 * origin_xl_idx * grid_data_.crossline_spacing(),
-                          -1.0 * origin_il_idx * grid_data_.inline_spacing());
-
-    Grid::Coordinate c2_r((getNumCrosslines() - origin_xl_idx - 1) *
-                              grid_data_.crossline_spacing(),
-                          c1_r.y);
-
-    Grid::Coordinate c3_r(c1_r.x, (getNumInlines() - origin_il_idx - 1) *
-                                      grid_data_.inline_spacing());
-
-    Grid::Coordinate c4_r(c2_r.x, c3_r.y);
-
-    auto set_corner_value = [](const GridData::Cell* cell,
-                               const Grid::Coordinate& c_r,
-                               const GridData::Cell& origin, float theta,
-                               Grid::Coordinate* corner) {
+    auto set_corner_value = [&](int32_t il, int32_t xl,
+                                const Grid::Coordinate& c_r,
+                                const GridData::Cell* origin, float theta,
+                                Grid::Coordinate* corner) {
+      const GridData::Cell* cell = getCell(il, xl);
       if (cell) {
         corner->x = cell->x_coordinate();
         corner->y = cell->y_coordinate();
-      } else {
-        (*corner) = ConvertToGlobalCRS(c_r, origin, theta);
+      } else if (origin) {
+        (*corner) = ConvertToGlobalCRS(c_r, *origin, theta);
       }
+      corner->inline_num = il;
+      corner->crossline_num = xl;
     };
 
-    set_corner_value(cell_map_[0][0], c1_r, *origin, theta, &bbox.c1);
-    set_corner_value(cell_map_[0][getNumCrosslines() - 1], c2_r, *origin, theta,
-                     &bbox.c2);
-    set_corner_value(cell_map_[getNumInlines() - 1][0], c3_r, *origin, theta,
-                     &bbox.c3);
-    set_corner_value(cell_map_[getNumInlines() - 1][getNumCrosslines() - 1],
-                     c4_r, *origin, theta, &bbox.c4);
+    set_corner_value(grid_data_.inline_min(), grid_data_.crossline_min(), c1_r,
+                     origin, theta, &bbox.c1);
+    set_corner_value(grid_data_.inline_min(), grid_data_.crossline_max(), c2_r,
+                     origin, theta, &bbox.c2);
+    set_corner_value(grid_data_.inline_max(), grid_data_.crossline_min(), c3_r,
+                     origin, theta, &bbox.c3);
+    set_corner_value(grid_data_.inline_max(), grid_data_.crossline_max(), c4_r,
+                     origin, theta, &bbox.c4);
 
     return bbox;
   }
@@ -503,7 +477,7 @@ class StackFile::GridMap {
   static Grid::Coordinate ConvertToGlobalCRS(const Grid::Coordinate& c_r,
                                              const GridData::Cell& origin,
                                              float theta) {
-    Grid::Coordinate c;
+    Grid::Coordinate c(c_r);
     // Rotate in opposite direction and then translate back.
     c.x = c_r.x * std::cos(-theta) + c_r.y * std::sin(-theta) +
           origin.x_coordinate();
@@ -605,12 +579,14 @@ StackFile::Grid::Grid() {
   grid_data_.set_crossline_min(0);
   grid_data_.set_crossline_max(0);
   grid_data_.set_crossline_increment(1);
+  utm_converter_.reset(new UTMZoneConverter(utm_zone_));
 }
 
-StackFile::Grid::Grid(const GridData& data,
-                      const internal::UTMZone& utm,
-                      const BoundingBox& bbox)
-    : grid_data_(data), utm_zone_(utm), bbox_(bbox) {}
+StackFile::Grid::Grid(const GridMap* grid_map, const UTMZone& utm)
+    : grid_map_(grid_map),
+      utm_zone_(utm),
+      grid_data_(grid_map->gridData()),
+      utm_converter_(new UTMZoneConverter(utm)) {}
 
 StackFile::Grid::~Grid() = default;
 
@@ -638,9 +614,8 @@ void StackFile::Grid::setNumCrosslines(uint32_t value) {
                                (value - 1) * grid_data_.crossline_increment());
 }
 
-StackFile::UTMZone StackFile::Grid::utmZone() const {
-  char letter = utm_zone_.letter()[0];
-  return UTMZone(utm_zone_.number(), letter);
+UTMZone StackFile::Grid::utmZone() const {
+  return utm_zone_;
 }
 
 StackFile::Grid::Units StackFile::Grid::units() const {
@@ -739,8 +714,52 @@ void StackFile::Grid::setNumSamples(uint32_t value) {
   grid_data_.set_num_samples(value);
 }
 
+bool StackFile::Grid::isBinActive(int32_t inline_num,
+                                  int32_t crossline_num) const {
+  if (grid_map_)
+    return grid_map_->isCellActive(inline_num, crossline_num);
+
+  return false;
+}
+
+StackFile::Grid::Coordinate StackFile::Grid::getCoordinate(
+    int32_t inline_num,
+    int32_t crossline_num) const {
+  if (grid_map_) {
+    const GridData::Cell* cell = grid_map_->getCell(inline_num, crossline_num);
+    if (cell) {
+      GeographicCoordinates geo_coord =
+          utm_converter_->getGeographicCoordinates(cell->x_coordinate(),
+                                                   cell->y_coordinate());
+
+      Coordinate coord(cell->x_coordinate(), cell->y_coordinate(), inline_num,
+                       crossline_num, geo_coord.latitude, geo_coord.longitude);
+      return coord;
+    }
+  }
+
+  return Coordinate();
+}
+
 StackFile::Grid::BoundingBox StackFile::Grid::boundingBox() const {
-  return bbox_;
+  if (grid_map_) {
+    BoundingBox bbox = grid_map_->computeBoundingBox();
+    auto assign_lat_lon = [&](Coordinate* coord) {
+      if (!utm_converter_)
+        return;
+      GeographicCoordinates geo_coord =
+          utm_converter_->getGeographicCoordinates(coord->x, coord->y);
+      coord->lat = geo_coord.latitude;
+      coord->lon = geo_coord.longitude;
+    };
+    assign_lat_lon(&bbox.c1);
+    assign_lat_lon(&bbox.c2);
+    assign_lat_lon(&bbox.c3);
+    assign_lat_lon(&bbox.c4);
+    return bbox;
+  }
+
+  return BoundingBox();
 }
 
 void StackFile::computeInlineMetadata(
@@ -1013,7 +1032,9 @@ void StackFile::createFromSegy(const std::string& filename,
   computeDepthSliceMetadata(depth_metadata);
 
   internal::UTMZone* utm_zone = header_->mutable_utm_zone();
-  (*utm_zone) = opts.getUtmZone().utm_;
+  utm_zone->set_number(opts.getUtmZone().number());
+  std::string letter(1, opts.getUtmZone().letter());
+  utm_zone->set_letter(letter.c_str());
 
   std::ofstream hdr_fp(filename.c_str(),
                        std::ios_base::trunc | std::ios_base::binary);
@@ -1046,8 +1067,9 @@ void StackFile::createFromSegy(const std::string& filename,
 }
 
 void StackFile::initialize() {
-  grid_.reset(new Grid(grid_map_->gridData(), header_->utm_zone(),
-                       grid_map_->computeBoundingBox()));
+  grid_.reset(new Grid(
+      grid_map_.get(),
+      UTMZone(header_->utm_zone().number(), header_->utm_zone().letter()[0])));
 
   data_file_.reset(new MmapFile(header_->inline_metadata().binary_file()));
   if (!data_file_->exists())

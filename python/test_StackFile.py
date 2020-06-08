@@ -125,6 +125,25 @@ class TestStackFile:
         assert(sf.grid().num_samples == num_ds)
         assert(abs(sf.grid().sampling_interval - samp_int/1000.0) < 1e-4)
 
+        bbox = sf.grid().bounding_box()
+        assert(bbox.c1.x == 0.0)
+        assert(bbox.c1.y == 0.0)
+        assert(bbox.c1.inline_num == 0)
+        assert(bbox.c1.crossline_num == 0)
+        assert(bbox.c1.latitude != 0.0)
+        assert(bbox.c1.longitude != 0.0)
+        if (sf.grid().num_inlines > 1):
+            assert(bbox.c3.y != 0.0)
+            assert(bbox.c4.y != 0.0)
+            assert(bbox.c3.inline_num == (num_il-1)*il_incr)
+            assert(bbox.c4.inline_num == (num_il-1)*il_incr)
+
+        if (sf.grid().num_crosslines > 1):
+            assert(bbox.c2.x != 0.0)
+            assert(bbox.c4.x != 0.0)
+            assert(bbox.c2.crossline_num == (num_xl-1)*xl_incr)
+            assert(bbox.c4.crossline_num == (num_xl-1)*xl_incr)
+
         il_data = sf.read_inline(
             sf.grid().inline_numbers[int(sf.grid().num_inlines/2)], 0.0)
         assert(il_data.shape == (num_xl, num_ds))

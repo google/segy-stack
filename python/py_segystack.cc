@@ -27,6 +27,24 @@ namespace py = pybind11;
 using namespace py::literals;
 using namespace segystack;
 
+void init_common(py::module* m) {
+  py::class_<UTMZone> utm(*m, "UTMZone");
+  utm.def(py::init<>());
+  utm.def(py::init<int, char>());
+  utm.def_property("number", &UTMZone::number, &UTMZone::setNumber);
+  utm.def_property(
+      "letter", &UTMZone::letter, [](UTMZone& self, const std::string& val) {
+        if (val.size() != 1)
+          throw py::type_error("Zone must consist of a single character!");
+        self.setLetter(val[0]);
+      });
+  utm.def("__repr__", [](const UTMZone& val) {
+    std::ostringstream ostr;
+    ostr << val;
+    return ostr.str();
+  });
+}
+
 void init_segy_file(py::module* m) {
   py::class_<SegyFile> sgy(*m, "SegyFile");
 
@@ -104,24 +122,6 @@ void init_stack_file(py::module* m) {
   sf.def("set_depth_slice_access_opt",
          &StackFile::setDepthSliceAccessOptimization);
 
-  py::class_<StackFile::UTMZone> utm(sf, "UTMZone");
-  utm.def(py::init<>());
-  utm.def(py::init<int, char>());
-  utm.def_property("number", &StackFile::UTMZone::number,
-                   &StackFile::UTMZone::setNumber);
-  utm.def_property(
-      "letter", &StackFile::UTMZone::letter,
-      [](StackFile::UTMZone& self, const std::string& val) {
-        if (val.size() != 1)
-          throw py::type_error("Zone must consist of a single character!");
-        self.setLetter(val[0]);
-      });
-  utm.def("__repr__", [](const StackFile::UTMZone& val) {
-    std::ostringstream ostr;
-    ostr << val;
-    return ostr.str();
-  });
-
   py::class_<StackFile::Grid> grid(sf, "Grid");
   grid.def(py::init<>());
   grid.def("utm_zone", &StackFile::Grid::utmZone);
@@ -152,32 +152,32 @@ void init_stack_file(py::module* m) {
                     &StackFile::Grid::setNumSamples);
   grid.def_property("units", &StackFile::Grid::units,
                     &StackFile::Grid::setUnits);
-  grid.def_property("inline_numbers",
-                    [](const StackFile::Grid& self) {
-                      py::tuple ils(self.numInlines());
-                      for (int il = self.inlineMin(), idx = 0;
-                           il <= self.inlineMax();
-                           il += self.inlineIncrement(), ++idx) {
-                        ils[idx] = il;
-                      }
-                      return ils;
-                    },
-                    [](const StackFile::Grid&, const py::object&) {
-                      throw py::type_error("Read only attribute");
-                    });
-  grid.def_property("crossline_numbers",
-                    [](const StackFile::Grid& self) {
-                      py::tuple xls(self.numCrosslines());
-                      for (int xl = self.crosslineMin(), idx = 0;
-                           xl <= self.crosslineMax();
-                           xl += self.crosslineIncrement(), ++idx) {
-                        xls[idx] = xl;
-                      }
-                      return xls;
-                    },
-                    [](const StackFile::Grid&, const py::object&) {
-                      throw py::type_error("Read only attribute");
-                    });
+  grid.def_property(
+      "inline_numbers",
+      [](const StackFile::Grid& self) {
+        py::tuple ils(self.numInlines());
+        for (int il = self.inlineMin(), idx = 0; il <= self.inlineMax();
+             il += self.inlineIncrement(), ++idx) {
+          ils[idx] = il;
+        }
+        return ils;
+      },
+      [](const StackFile::Grid&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  grid.def_property(
+      "crossline_numbers",
+      [](const StackFile::Grid& self) {
+        py::tuple xls(self.numCrosslines());
+        for (int xl = self.crosslineMin(), idx = 0; xl <= self.crosslineMax();
+             xl += self.crosslineIncrement(), ++idx) {
+          xls[idx] = xl;
+        }
+        return xls;
+      },
+      [](const StackFile::Grid&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
   grid.def("__repr__", [](const StackFile::Grid& grid) {
     std::ostringstream ostr;
     ostr << grid;
@@ -198,6 +198,32 @@ void init_stack_file(py::module* m) {
       });
   coord.def_property(
       "y", [](const StackFile::Grid::Coordinate& self) { return self.y; },
+      [](StackFile::Grid::Coordinate&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  coord.def_property(
+      "inline_num",
+      [](const StackFile::Grid::Coordinate& self) { return self.inline_num; },
+      [](StackFile::Grid::Coordinate&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  coord.def_property(
+      "crossline_num",
+      [](const StackFile::Grid::Coordinate& self) {
+        return self.crossline_num;
+      },
+      [](StackFile::Grid::Coordinate&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  coord.def_property(
+      "latitude",
+      [](const StackFile::Grid::Coordinate& self) { return self.lat; },
+      [](StackFile::Grid::Coordinate&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  coord.def_property(
+      "longitude",
+      [](const StackFile::Grid::Coordinate& self) { return self.lon; },
       [](StackFile::Grid::Coordinate&, const py::object&) {
         throw py::type_error("Read only attribute");
       });
@@ -263,6 +289,7 @@ PYBIND11_MODULE(segystack, m) {
   google::InitGoogleLogging("segystack");
 
   m.doc() = "segystack python interface";
+  init_common(&m);
   init_segy_file(&m);
   init_stack_file(&m);
 

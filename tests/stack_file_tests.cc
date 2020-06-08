@@ -40,6 +40,30 @@ class StackFileTest : public ::testing::Test {
       ASSERT_EQ(xl_incr_, fp.grid().crosslineIncrement());
       ASSERT_FLOAT_EQ(xl_spacing_, fp.grid().crosslineSpacing());
     }
+
+    const StackFile::Grid& grid = fp.grid();
+    for (int il = grid.inlineMin(); il <= grid.inlineMax();
+         il += grid.inlineIncrement()) {
+      for (int xl = grid.crosslineMin(); xl <= grid.crosslineMax();
+           xl += grid.crosslineIncrement()) {
+        ASSERT_TRUE(grid.isBinActive(il, xl));
+        StackFile::Grid::Coordinate coord = grid.getCoordinate(il, xl);
+        ASSERT_EQ(coord.inline_num, il);
+        ASSERT_EQ(coord.crossline_num, xl);
+      }
+    }
+
+    StackFile::Grid::BoundingBox bbox = grid.boundingBox();
+
+    ASSERT_EQ(bbox.c1.inline_num, grid.inlineMin());
+    ASSERT_EQ(bbox.c2.inline_num, grid.inlineMin());
+    ASSERT_EQ(bbox.c3.inline_num, grid.inlineMax());
+    ASSERT_EQ(bbox.c4.inline_num, grid.inlineMax());
+
+    ASSERT_EQ(bbox.c1.crossline_num, grid.crosslineMin());
+    ASSERT_EQ(bbox.c2.crossline_num, grid.crosslineMax());
+    ASSERT_EQ(bbox.c3.crossline_num, grid.crosslineMin());
+    ASSERT_EQ(bbox.c4.crossline_num, grid.crosslineMax());
   }
 
   void deleteFile(const std::string& filename) { ::unlink(filename.c_str()); }

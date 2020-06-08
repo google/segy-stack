@@ -50,6 +50,8 @@ int main(int argc, char* argv[]) {
                    " --input_file=segy_file.sgy --output_file=outfile.stack"));
   absl::ParseCommandLine(argc, argv);
 
+  FLAGS_stderrthreshold = 1;
+
   std::string infile;
   if (FLAGS_input_file.IsSpecifiedOnCommandLine()) {
     infile = FLAGS_input_file.Get();
