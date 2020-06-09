@@ -139,9 +139,16 @@ UTMZoneConverter::~UTMZoneConverter() = default;
 
 GeographicCoordinates UTMZoneConverter::getGeographicCoordinates(
     float easting,
-    float northing) const {
+    float northing,
+    bool dist_in_meters) const {
   if (impl_->proj_context_ == nullptr)
     return GeographicCoordinates();
+
+  if (!dist_in_meters) {
+    // convert to meters.
+    easting *= 0.3048;
+    northing *= 0.3048;
+  }
 
   PJ_COORD a;
   a.xy.x = easting;

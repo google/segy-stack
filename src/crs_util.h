@@ -51,10 +51,13 @@ class UTMZoneConverter {
  public:
   UTMZoneConverter(const UTMZone& utm_zone);
 
-  GeographicCoordinates getGeographicCoordinates(float easting,
-                                                 float northing) const;
+  GeographicCoordinates getGeographicCoordinates(
+      float easting,
+      float northing,
+      bool dist_in_meters = true) const;
 
   ~UTMZoneConverter();
+
  private:
   class Impl;
   std::unique_ptr<Impl> impl_;

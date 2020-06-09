@@ -729,8 +729,8 @@ StackFile::Grid::Coordinate StackFile::Grid::getCoordinate(
     const GridData::Cell* cell = grid_map_->getCell(inline_num, crossline_num);
     if (cell) {
       GeographicCoordinates geo_coord =
-          utm_converter_->getGeographicCoordinates(cell->x_coordinate(),
-                                                   cell->y_coordinate());
+          utm_converter_->getGeographicCoordinates(
+              cell->x_coordinate(), cell->y_coordinate(), units() == METERS);
 
       Coordinate coord(cell->x_coordinate(), cell->y_coordinate(), inline_num,
                        crossline_num, geo_coord.latitude, geo_coord.longitude);
@@ -748,7 +748,8 @@ StackFile::Grid::BoundingBox StackFile::Grid::boundingBox() const {
       if (!utm_converter_)
         return;
       GeographicCoordinates geo_coord =
-          utm_converter_->getGeographicCoordinates(coord->x, coord->y);
+          utm_converter_->getGeographicCoordinates(coord->x, coord->y,
+                                                   units() == METERS);
       coord->lat = geo_coord.latitude;
       coord->lon = geo_coord.longitude;
     };
