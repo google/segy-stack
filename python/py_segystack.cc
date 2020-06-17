@@ -126,6 +126,8 @@ void init_stack_file(py::module* m) {
   grid.def(py::init<>());
   grid.def("utm_zone", &StackFile::Grid::utmZone);
   grid.def("bounding_box", &StackFile::Grid::boundingBox);
+  grid.def("is_bin_active", &StackFile::Grid::isBinActive);
+  grid.def("get_coordinate", &StackFile::Grid::getCoordinate);
   grid.def_property("inline_min", &StackFile::Grid::inlineMin,
                     &StackFile::Grid::setInlineMin);
   grid.def_property("inline_max", &StackFile::Grid::inlineMax,
