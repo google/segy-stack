@@ -48,6 +48,7 @@ constexpr int kSegyNumSamplesPerTrcOffset = 21;
 constexpr int kSegyNumExtendedHdsOffset = 305;
 constexpr int kSegyIEEEDataFormatCode = 5;
 constexpr int kSegyIBMFloatDataFormatCode = 1;
+constexpr int kSegyDataSampleFormat = 25;
 constexpr int kSegyTextHeaderLineWidth = 80;
 constexpr int kSegyBinHdrSamplingIntOffset = 17;
 constexpr int kSegyBinHdrSegyMajorOffset = 301;
@@ -306,7 +307,8 @@ bool SegyFile::read(Trace& trace) const {
   samples.resize(num_samples_per_trc_);
   std::memcpy(&(samples[0]), trc_ptr_, trace_bytes);
 
-  uint16_t sample_format_code = binary_header_->getValueAtOffset<uint16_t>(25);
+  uint16_t sample_format_code =
+      binary_header_->getValueAtOffset<uint16_t>(kSegyDataSampleFormat);
 
   if (sample_format_code == kSegyIEEEDataFormatCode) {
 #if __BYTE_ORDER == __LITTLE_ENDIAN
@@ -372,6 +374,22 @@ void SegyFile::BinaryHeader::print(std::ostream& os) const {
      << getValueAtOffset<uint16_t>(kSegyBinHdrSamplingIntOffset) << std::endl;
   os << "Num samples per trc : "
      << getValueAtOffset<uint16_t>(kSegyNumSamplesPerTrcOffset) << std::endl;
+  uint16_t format_code = getValueAtOffset<uint16_t>(kSegyDataSampleFormat);
+  os << "Data sample format code : " << format_code << " (";
+  switch (format_code) {
+    case 1:
+      os << "IBM floating-point";
+      break;
+    case 5:
+      os << "IEEE floating-point";
+      break;
+    default:
+      os << "Not supported";
+      break;
+  }
+  os << ")" << std::endl;
+  uint16_t units = getValueAtOffset<uint16_t>(55);
+  os << "Measurement units: " << ((units == 1) ? "Meters" : "Feet") << std::endl;
 }
 
 void SegyFile::Trace::Header::print(std::ostream& os) const {
