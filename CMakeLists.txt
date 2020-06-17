@@ -32,7 +32,7 @@ if("${isSystemDir}" STREQUAL "-1")
     set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
 endif("${isSystemDir}" STREQUAL "-1")
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 set( CMAKE_CXX_FLAGS  "${CMAKE_CXX_FLAGS} -fPIC -Wall" )
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
@@ -95,6 +95,8 @@ set(PROJ_LIBRARIES "proj")
 protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${segystack_PROTOS})
 
 set(segystack_ALL_SOURCES ${segystack_SOURCES} ${PROTO_SRCS} ${PROTO_HDRS})
+
+link_libraries(stdc++fs)
 
 add_library(${CMAKE_PROJECT_NAME} STATIC ${segystack_ALL_SOURCES} )
 target_link_libraries(${CMAKE_PROJECT_NAME} glog::glog ${PROJ_LIBRARIES})

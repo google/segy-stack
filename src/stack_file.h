@@ -225,9 +225,11 @@ class StackFile {
   void readDepthSliceFromInlineData(unsigned int sample_index,
                                     float* buffer,
                                     size_t buffer_size) const;
+  std::string getAbsolutePath(const std::string& filename) const;
 
   std::string filename_;
   std::unique_ptr<internal::StackHeader> header_;
+  std::string header_path_;
   std::unique_ptr<GridMap> grid_map_;
   std::unique_ptr<const Grid> grid_;
   std::unique_ptr<MmapFile> data_file_, data_xl_file_, data_ds_file_;

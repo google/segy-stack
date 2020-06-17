@@ -19,8 +19,17 @@
 #include <sys/types.h>
 #include <unistd.h>
 
+#if defined(__GNUC__) && (__GNUC___ < 8)
+#define USE_STD_EXPERIMENTAL_FILESYSTEM
+#endif
+
 #include <algorithm>
 #include <cmath>
+#ifdef USE_STD_EXPERIMENTAL_FILESYSTEM
+#include <experimental/filesystem>
+#else
+#include <filesystem>
+#endif
 #include <functional>
 #include <set>
 #include <unordered_map>
@@ -29,6 +38,12 @@
 #include "segy_file.h"
 
 using segystack::internal::GridData;
+
+#ifdef USE_STD_EXPERIMENTAL_FILESYSTEM
+namespace stdfs = std::experimental::filesystem;
+#else
+namespace stdfs = std::filesystem;
+#endif
 
 namespace segystack {
 
@@ -849,6 +864,9 @@ StackFile::StackFile(const std::string& filename) : filename_(filename) {
     }
   }
 
+  header_path_ = stdfs::path(filename).parent_path().string();
+  LOGFN_VAR(header_path_);
+
   std::ifstream ifp(filename_.c_str());
   char magic_buffer[sizeof(kStackFileMagic)];
   ifp.read(magic_buffer, sizeof(magic_buffer));
@@ -920,6 +938,11 @@ void StackFile::createFromSegy(const std::string& filename,
                              " not opened for reading!");
   }
 
+  header_path_ = stdfs::path(filename).parent_path().string();
+  LOGFN_VAR(header_path_);
+  std::string basefilename = stdfs::path(filename).filename().string();
+  LOGFN_VAR(basefilename);
+
   const SegyFile::BinaryHeader& binary_header = segyfile.getBinaryHeader();
 
   header_.reset(new internal::StackHeader());
@@ -949,12 +972,15 @@ void StackFile::createFromSegy(const std::string& filename,
 
   internal::StackHeader::SliceMetadata* inline_metadata =
       header_->mutable_inline_metadata();
-  std::string inline_data_file = filename + "_data";
+  std::string inline_data_file = basefilename + "_data";
   inline_metadata->set_binary_file(inline_data_file);
 
   SegyFile::Trace trace;
   uint64_t num_traces_read = 0;
-  std::ofstream inline_bin_file(inline_metadata->binary_file().c_str(),
+
+  std::string il_bin_file = getAbsolutePath(inline_metadata->binary_file());
+  LOGFN_VAR(il_bin_file);
+  std::ofstream inline_bin_file(il_bin_file.c_str(),
                                 std::ios_base::trunc | std::ios_base::binary);
 
   grid_map_.reset(new GridMap(*grid_data));
@@ -1020,14 +1046,14 @@ void StackFile::createFromSegy(const std::string& filename,
 
   internal::StackHeader::SliceMetadata* crossline_metadata =
       header_->mutable_crossline_metadata();
-  std::string crossline_data_file = filename + "_data_xline";
+  std::string crossline_data_file = basefilename + "_data_xline";
   crossline_metadata->set_binary_file(crossline_data_file);
 
   computeCrosslineMetadata(crossline_metadata);
 
   internal::StackHeader::SliceMetadata* depth_metadata =
       header_->mutable_depth_metadata();
-  std::string depth_data_file = filename + "_data_depth";
+  std::string depth_data_file = basefilename + "_data_depth";
   depth_metadata->set_binary_file(depth_data_file);
 
   computeDepthSliceMetadata(depth_metadata);
@@ -1072,7 +1098,8 @@ void StackFile::initialize() {
       grid_map_.get(),
       UTMZone(header_->utm_zone().number(), header_->utm_zone().letter()[0])));
 
-  data_file_.reset(new MmapFile(header_->inline_metadata().binary_file()));
+  data_file_.reset(
+      new MmapFile(getAbsolutePath(header_->inline_metadata().binary_file())));
   if (!data_file_->exists())
     throw std::runtime_error("Missing data file: " + data_file_->name());
 
@@ -1081,12 +1108,13 @@ void StackFile::initialize() {
 
   grid_map_->setInlineDataAddress(data_file_->char_addr());
 
-  data_xl_file_.reset(
-      new MmapFile(header_->crossline_metadata().binary_file()));
+  data_xl_file_.reset(new MmapFile(
+      getAbsolutePath(header_->crossline_metadata().binary_file())));
   if (!data_xl_file_->exists())
     data_xl_file_.reset();
 
-  data_ds_file_.reset(new MmapFile(header_->depth_metadata().binary_file()));
+  data_ds_file_.reset(
+      new MmapFile(getAbsolutePath(header_->depth_metadata().binary_file())));
   if (!data_ds_file_->exists())
     data_ds_file_.reset();
 }
@@ -1285,7 +1313,11 @@ void StackFile::setDepthSliceAccessOptimization(bool value) {
 
 void StackFile::writeCrosslineSlices() {
   TIMEIT;
-  std::ofstream xl_data_fp(header_->crossline_metadata().binary_file().c_str(),
+  std::string xl_bin_file =
+      getAbsolutePath(header_->crossline_metadata().binary_file());
+  LOGFN_VAR(xl_bin_file);
+
+  std::ofstream xl_data_fp(xl_bin_file.c_str(),
                            std::ios_base::trunc | std::ios_base::binary);
 
   size_t num_trace_bytes = sizeof(float) * grid_->numSamples();
@@ -1301,13 +1333,16 @@ void StackFile::writeCrosslineSlices() {
   }
 
   xl_data_fp.close();
-  data_xl_file_.reset(
-      new MmapFile(header_->crossline_metadata().binary_file()));
+  data_xl_file_.reset(new MmapFile(xl_bin_file));
 }
 
 void StackFile::writeDepthSlices() {
   TIMEIT;
-  data_ds_file_.reset(new MmapFile(header_->depth_metadata().binary_file()));
+  std::string ds_bin_file =
+      getAbsolutePath(header_->depth_metadata().binary_file());
+  LOGFN_VAR(ds_bin_file);
+
+  data_ds_file_.reset(new MmapFile(ds_bin_file));
   data_ds_file_->open(std::ios_base::trunc | std::ios_base::binary);
 
   size_t depth_slice_bytes = 0;
@@ -1365,7 +1400,7 @@ void StackFile::writeDepthSlices() {
   data_ds_file_->unmap();
   data_ds_file_->close();
 
-  data_ds_file_.reset(new MmapFile(header_->depth_metadata().binary_file()));
+  data_ds_file_.reset(new MmapFile(ds_bin_file));
 }
 
 void StackFile::readDepthSliceOptimized(unsigned int sample_index,
@@ -1418,6 +1453,10 @@ void StackFile::readDepthSliceFromInlineData(unsigned int sample_index,
       dest_idx++;
     }
   }
+}
+
+std::string StackFile::getAbsolutePath(const std::string& filename) const {
+  return stdfs::path(header_path_) / filename;
 }
 
 }  // namespace segystack
