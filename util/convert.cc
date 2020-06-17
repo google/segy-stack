@@ -34,6 +34,8 @@ ABSL_FLAG(bool, is_2d, false, "The input file is a 2D dataset.");
 ABSL_FLAG(std::string, utm_zone_letter, "U", "UTM Zone letter");
 ABSL_FLAG(bool, enable_crossline_opt, false, "Enable fast crossline access");
 ABSL_FLAG(bool, enable_depth_opt, false, "Enable fast depth slice access");
+ABSL_FLAG(bool, verbose, false, "Enable verbose logging");
+ABSL_FLAG(int, verbose_level, 0, "Verbose logging level");
 
 using namespace segystack;
 
@@ -50,7 +52,13 @@ int main(int argc, char* argv[]) {
                    " --input_file=segy_file.sgy --output_file=outfile.stack"));
   absl::ParseCommandLine(argc, argv);
 
-  FLAGS_stderrthreshold = 1;
+  if (FLAGS_verbose.Get()) {
+    FLAGS_stderrthreshold = 0;
+  }
+
+  if (FLAGS_verbose_level.IsSpecifiedOnCommandLine()) {
+    FLAGS_v = FLAGS_verbose_level.Get();
+  }
 
   std::string infile;
   if (FLAGS_input_file.IsSpecifiedOnCommandLine()) {
@@ -99,7 +107,7 @@ int main(int argc, char* argv[]) {
     opts.setUtmZone(FLAGS_utm_zone_num.Get(), FLAGS_utm_zone_letter.Get()[0]);
   }
 
-  if (FLAGS_is_2d.IsSpecifiedOnCommandLine()) {
+  if (FLAGS_is_2d.Get()) {
     opts.setIs2D(FLAGS_is_2d.Get());
   }
 
@@ -115,11 +123,17 @@ int main(int argc, char* argv[]) {
             << "Grid: " << std::endl
             << stkFile.grid() << std::endl;
 
-  if (FLAGS_enable_crossline_opt.IsSpecifiedOnCommandLine())
+  if (FLAGS_enable_crossline_opt.Get()) {
+    std::cout << "Creating crossline access optimization ..." << std::endl;
     stkFile.setCrosslineAccessOptimization(FLAGS_enable_crossline_opt.Get());
+    std::cout << "Creating crossline access optimization done." << std::endl;
+  }
 
-  if (FLAGS_enable_depth_opt.IsSpecifiedOnCommandLine())
+  if (FLAGS_enable_depth_opt.Get()) {
+    std::cout << "Creating depth access optimization ..." << std::endl;
     stkFile.setDepthSliceAccessOptimization(FLAGS_enable_depth_opt.Get());
+    std::cout << "Creating depth access optimization done." << std::endl;
+  }
 
   return 0;
 }
