@@ -96,7 +96,9 @@ protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${segystack_PROTOS})
 
 set(segystack_ALL_SOURCES ${segystack_SOURCES} ${PROTO_SRCS} ${PROTO_HDRS})
 
-link_libraries(stdc++fs)
+if (NOT ${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
+  link_libraries(stdc++fs)
+endif()
 
 add_library(${CMAKE_PROJECT_NAME} STATIC ${segystack_ALL_SOURCES} )
 target_link_libraries(${CMAKE_PROJECT_NAME} glog::glog ${PROJ_LIBRARIES})
@@ -105,7 +107,7 @@ add_library(${CMAKE_PROJECT_NAME}_shared SHARED ${segystack_ALL_SOURCES} )
 set_target_properties( ${CMAKE_PROJECT_NAME}_shared PROPERTIES OUTPUT_NAME ${CMAKE_PROJECT_NAME} )
 set_target_properties( ${CMAKE_PROJECT_NAME}_shared
                        PROPERTIES VERSION ${PROJECT_VERSION} SOVERSION ${PROJECT_VERSION} )
-target_link_libraries(${CMAKE_PROJECT_NAME}_shared ${Protobuf_LIBRARIES} glog::glog)
+target_link_libraries(${CMAKE_PROJECT_NAME}_shared ${Protobuf_LIBRARIES} glog::glog ${PROJ_LIBRARIES})
 
 add_subdirectory(util)
 add_subdirectory(tests)
