@@ -94,16 +94,18 @@ class StackFile {
 
     struct Coordinate {
       float x, y;
-      int32_t inline_num, crossline_num;
+      int32_t inline_num, crossline_num, ensemble_num;
       float lat, lon;
+      float shotpoint_num;
       Coordinate()
-          : x(0), y(0), inline_num(0), crossline_num(0), lat(0), lon(0) {}
-      Coordinate(float x, float y)
-          : x(x), y(y), inline_num(0), crossline_num(0), lat(0), lon(0) {}
-      Coordinate(float x, float y, int32_t il, int32_t xl)
-          : x(x), y(y), inline_num(il), crossline_num(xl), lat(0), lon(0) {}
-      Coordinate(float x, float y, int32_t il, int32_t xl, float lat, float lon)
-          : x(x), y(y), inline_num(il), crossline_num(xl), lat(lat), lon(lon) {}
+          : x(0),
+            y(0),
+            inline_num(0),
+            crossline_num(0),
+            ensemble_num(0),
+            lat(0),
+            lon(0),
+            shotpoint_num(0) {}
     };
 
     Coordinate getCoordinate(int32_t inline_num, int32_t crossline_num) const;

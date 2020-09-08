@@ -53,6 +53,8 @@ constexpr int kSegyTextHeaderLineWidth = 80;
 constexpr int kSegyBinHdrSamplingIntOffset = 17;
 constexpr int kSegyBinHdrSegyMajorOffset = 301;
 constexpr int kSegyBinHdrSegyMinorOffset = 302;
+constexpr int kSegyHeaderEnsembleNumOffset = 21;
+constexpr int kSegyHeaderShotpointNumOffset = 197;
 
 const std::vector<int> kSegyHeaderXCoordCandidateOffsets = {
     181,  // X coordinate of ensemble (CDP) position of this trace.
@@ -166,6 +168,10 @@ SegyFile::guessTraceHeaderOffsets() const {
            kSegyHeaderYCoordCandidateOffsets.size());
 
   std::map<Trace::Header::Attribute, int> offsets;
+  offsets[Trace::Header::Attribute::ENSEMBLE_NUMBER] =
+      kSegyHeaderEnsembleNumOffset;
+  offsets[Trace::Header::Attribute::SHOTPOINT_NUMBER] =
+      kSegyHeaderShotpointNumOffset;
 
   for (size_t i = 0; i < kSegyHeaderXCoordCandidateOffsets.size(); i++) {
     int x_offset = kSegyHeaderXCoordCandidateOffsets[i];
@@ -389,7 +395,8 @@ void SegyFile::BinaryHeader::print(std::ostream& os) const {
   }
   os << ")" << std::endl;
   uint16_t units = getValueAtOffset<uint16_t>(55);
-  os << "Measurement units: " << ((units == 1) ? "Meters" : "Feet") << std::endl;
+  os << "Measurement units: " << ((units == 1) ? "Meters" : "Feet")
+     << std::endl;
 }
 
 void SegyFile::Trace::Header::print(std::ostream& os) const {

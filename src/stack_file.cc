@@ -47,6 +47,11 @@ namespace stdfs = std::filesystem;
 
 namespace segystack {
 
+namespace {
+// Scalar to be applied to the shotpoint number to give the real value.
+constexpr int kSegyHeaderShotpointNumScalarOffset = 197;
+}  // namespace
+
 std::ostream& operator<<(std::ostream& os, const GridData& grid_data) {
   os << "IL range : " << grid_data.inline_min() << " - "
      << grid_data.inline_max() << std::endl;
@@ -92,7 +97,8 @@ std::ostream& operator<<(std::ostream& os,
                          const StackFile::Grid::Coordinate& coord) {
   os << "X/Y(" << coord.x << ", " << coord.y << "), IL/XL(" << coord.inline_num
      << ", " << coord.crossline_num << "), Lat/Lon(" << coord.lat << ", "
-     << coord.lon << ")";
+     << coord.lon << ", Ensemble/Shotpoint(" << coord.ensemble_num << ", "
+     << coord.shotpoint_num << ")";
   return os;
 }
 
@@ -108,6 +114,8 @@ std::ostream& operator<<(std::ostream& os, const GridData::Cell& cell) {
      << cell.y_coordinate() << ")" << std::endl;
   os << "Grid numbers (IL, XL) : (" << cell.inline_number() << ", "
      << cell.crossline_number() << ")" << std::endl;
+  os << "Ensemble/Shotpoint numbers : (" << cell.ensemble_number() << ", "
+     << cell.shotpoint_number() << ")" << std::endl;
   return os;
 }
 
@@ -122,6 +130,10 @@ std::ostream& operator<<(std::ostream& os, const StackFile::SegyOptions& opts) {
      << opts.getTraceHeaderOffset(Attribute::X_COORDINATE) << std::endl;
   os << "Y Coordinate offset: "
      << opts.getTraceHeaderOffset(Attribute::Y_COORDINATE) << std::endl;
+  os << "Ensemble num offset: "
+     << opts.getTraceHeaderOffset(Attribute::ENSEMBLE_NUMBER) << std::endl;
+  os << "Shotpoint num offset: "
+     << opts.getTraceHeaderOffset(Attribute::SHOTPOINT_NUMBER) << std::endl;
   os << "Is 2D: " << opts.is2D() << std::endl;
   return os;
 }
@@ -140,6 +152,8 @@ StackFile::SegyOptions::SegyOptions() : is_2d_(false) {
   offsets_[SegyFile::Trace::Header::Attribute::Y_COORDINATE] = 185;
   offsets_[SegyFile::Trace::Header::Attribute::INLINE_NUMBER] = 189;
   offsets_[SegyFile::Trace::Header::Attribute::CROSSLINE_NUMBER] = 193;
+  offsets_[SegyFile::Trace::Header::Attribute::ENSEMBLE_NUMBER] = 21;
+  offsets_[SegyFile::Trace::Header::Attribute::SHOTPOINT_NUMBER] = 197;
 }
 
 void StackFile::SegyOptions::setTraceHeaderOffsets(
@@ -349,8 +363,15 @@ class StackFile::GridMap {
       // Single cell case.
       const GridData::Cell* cell = cell_map_[0][0];
       CHECK_NOTNULL(cell);
-      Grid::Coordinate c(cell->x_coordinate(), cell->y_coordinate(),
-                         grid_data_.inline_min(), grid_data_.crossline_min());
+
+      Grid::Coordinate c;
+      c.x = cell->x_coordinate();
+      c.y = cell->y_coordinate();
+      c.ensemble_num = cell->ensemble_number();
+      c.shotpoint_num = cell->shotpoint_number();
+      c.inline_num = grid_data_.inline_min();
+      c.crossline_num = grid_data_.crossline_min();
+
       bbox.c1 = c;
       bbox.c2 = c;
       bbox.c3 = c;
@@ -362,10 +383,23 @@ class StackFile::GridMap {
       const GridData::Cell* cell2 = cell_map_[0][getNumCrosslines() - 1];
       CHECK_NOTNULL(cell1);
       CHECK_NOTNULL(cell2);
-      Grid::Coordinate c1(cell1->x_coordinate(), cell1->y_coordinate(),
-                          grid_data_.inline_min(), grid_data_.crossline_min());
-      Grid::Coordinate c2(cell2->x_coordinate(), cell2->y_coordinate(),
-                          grid_data_.inline_min(), grid_data_.crossline_max());
+
+      Grid::Coordinate c1;
+      c1.x = cell1->x_coordinate();
+      c1.y = cell1->y_coordinate();
+      c1.ensemble_num = cell1->ensemble_number();
+      c1.shotpoint_num = cell1->shotpoint_number();
+      c1.inline_num = grid_data_.inline_min();
+      c1.crossline_num = grid_data_.crossline_min();
+
+      Grid::Coordinate c2;
+      c2.x = cell2->x_coordinate();
+      c2.y = cell2->y_coordinate();
+      c2.ensemble_num = cell2->ensemble_number();
+      c2.shotpoint_num = cell2->shotpoint_number();
+      c2.inline_num = grid_data_.inline_min();
+      c2.crossline_num = grid_data_.crossline_max();
+
       bbox.c1 = c1;
       bbox.c3 = c1;
       bbox.c2 = c2;
@@ -377,10 +411,23 @@ class StackFile::GridMap {
       const GridData::Cell* cell2 = cell_map_[getNumInlines() - 1][0];
       CHECK_NOTNULL(cell1);
       CHECK_NOTNULL(cell2);
-      Grid::Coordinate c1(cell1->x_coordinate(), cell1->y_coordinate(),
-                          grid_data_.inline_min(), grid_data_.crossline_min());
-      Grid::Coordinate c3(cell2->x_coordinate(), cell2->y_coordinate(),
-                          grid_data_.inline_max(), grid_data_.crossline_min());
+
+      Grid::Coordinate c1;
+      c1.x = cell1->x_coordinate();
+      c1.y = cell1->y_coordinate();
+      c1.ensemble_num = cell1->ensemble_number();
+      c1.shotpoint_num = cell1->shotpoint_number();
+      c1.inline_num = grid_data_.inline_min();
+      c1.crossline_num = grid_data_.crossline_min();
+
+      Grid::Coordinate c3;
+      c3.x = cell2->x_coordinate();
+      c3.y = cell2->y_coordinate();
+      c3.ensemble_num = cell2->ensemble_number();
+      c3.shotpoint_num = cell2->shotpoint_number();
+      c3.inline_num = grid_data_.inline_max();
+      c3.crossline_num = grid_data_.crossline_min();
+
       bbox.c1 = c1;
       bbox.c3 = c3;
       bbox.c2 = c1;
@@ -747,8 +794,15 @@ StackFile::Grid::Coordinate StackFile::Grid::getCoordinate(
           utm_converter_->getGeographicCoordinates(
               cell->x_coordinate(), cell->y_coordinate(), units() == METERS);
 
-      Coordinate coord(cell->x_coordinate(), cell->y_coordinate(), inline_num,
-                       crossline_num, geo_coord.latitude, geo_coord.longitude);
+      Coordinate coord;
+      coord.x = cell->x_coordinate();
+      coord.y = cell->y_coordinate();
+      coord.ensemble_num = cell->ensemble_number();
+      coord.shotpoint_num = cell->shotpoint_number();
+      coord.inline_num = inline_num;
+      coord.crossline_num = crossline_num;
+      coord.lat = geo_coord.latitude;
+      coord.lon = geo_coord.longitude;
       return coord;
     }
   }
@@ -1009,6 +1063,23 @@ void StackFile::createFromSegy(const std::string& filename,
           header.getValueAtOffset<int32_t>(opts.getTraceHeaderOffset(
               SegyFile::Trace::Header::Attribute::CROSSLINE_NUMBER)));
     }
+
+    grid_cell->set_ensemble_number(
+        header.getValueAtOffset<int32_t>(opts.getTraceHeaderOffset(
+            SegyFile::Trace::Header::Attribute::ENSEMBLE_NUMBER)));
+
+    float shotpoint_num =
+        float(header.getValueAtOffset<int32_t>(opts.getTraceHeaderOffset(
+            SegyFile::Trace::Header::Attribute::SHOTPOINT_NUMBER)));
+
+    int shotpoint_scalar =
+        header.getValueAtOffset<int32_t>(kSegyHeaderShotpointNumScalarOffset);
+    if (shotpoint_scalar > 0) {
+      shotpoint_num *= shotpoint_scalar;
+    } else if (shotpoint_scalar < 0) {
+      shotpoint_num /= std::abs(shotpoint_scalar);
+    }
+    grid_cell->set_shotpoint_number(shotpoint_num);
 
     VLOG(2) << "Cell: " << (*grid_cell) << std::endl;
 

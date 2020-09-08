@@ -94,6 +94,8 @@ class SegyFile {
       enum class Attribute {
         INLINE_NUMBER,
         CROSSLINE_NUMBER,
+        ENSEMBLE_NUMBER,
+        SHOTPOINT_NUMBER,
         X_COORDINATE,
         Y_COORDINATE
       };

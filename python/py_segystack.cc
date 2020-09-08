@@ -50,7 +50,7 @@ void init_segy_file(py::module* m) {
 
   sgy.def(py::init<const std::string&>());
   sgy.def("open", [](SegyFile& self, const std::string& mode) {
-    std::ios_base::openmode open_mode;
+    std::ios_base::openmode open_mode = 0;
     if (mode.find('r') != std::string::npos)
       open_mode |= std::ios_base::in;
     if (mode.find('w') != std::string::npos)
@@ -192,7 +192,7 @@ void init_stack_file(py::module* m) {
       .export_values();
 
   py::class_<StackFile::Grid::Coordinate> coord(grid, "Coordinate");
-  coord.def(py::init<float, float>());
+  coord.def(py::init<>());
   coord.def_property(
       "x", [](const StackFile::Grid::Coordinate& self) { return self.x; },
       [](StackFile::Grid::Coordinate&, const py::object&) {
@@ -213,6 +213,20 @@ void init_stack_file(py::module* m) {
       "crossline_num",
       [](const StackFile::Grid::Coordinate& self) {
         return self.crossline_num;
+      },
+      [](StackFile::Grid::Coordinate&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  coord.def_property(
+      "ensemble_num",
+      [](const StackFile::Grid::Coordinate& self) { return self.ensemble_num; },
+      [](StackFile::Grid::Coordinate&, const py::object&) {
+        throw py::type_error("Read only attribute");
+      });
+  coord.def_property(
+      "shotpoint_num",
+      [](const StackFile::Grid::Coordinate& self) {
+        return self.shotpoint_num;
       },
       [](StackFile::Grid::Coordinate&, const py::object&) {
         throw py::type_error("Read only attribute");

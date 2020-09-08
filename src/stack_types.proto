@@ -62,6 +62,8 @@ message GridData {
     double y_coordinate = 2;
     int32 inline_number = 3;
     int32 crossline_number = 4;
+    int32 ensemble_number = 5;
+    double shotpoint_number = 6;
   }
 
   // Total number of active grid cells.
