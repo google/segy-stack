@@ -50,7 +50,7 @@ void init_segy_file(py::module* m) {
 
   sgy.def(py::init<const std::string&>());
   sgy.def("open", [](SegyFile& self, const std::string& mode) {
-    std::ios_base::openmode open_mode = 0;
+    std::ios_base::openmode open_mode = std::ios_base::in;
     if (mode.find('r') != std::string::npos)
       open_mode |= std::ios_base::in;
     if (mode.find('w') != std::string::npos)
