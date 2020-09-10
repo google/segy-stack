@@ -1,3 +1,5 @@
+![build](https://github.com/google/segy-stack/workflows/CMake/badge.svg)
+
 # segy-stack
 
 A library with C++ and Python API to read 3D Post-stack seismic data in SEG-Y format.
