@@ -75,6 +75,8 @@ void init_segy_file(py::module* m) {
              SegyFile::Trace::Header::Attribute::CROSSLINE_NUMBER)
       .value("X_COORDINATE", SegyFile::Trace::Header::Attribute::X_COORDINATE)
       .value("Y_COORDINATE", SegyFile::Trace::Header::Attribute::Y_COORDINATE)
+      .value("SHOTPOINT_NUMBER", SegyFile::Trace::Header::Attribute::SHOTPOINT_NUMBER)
+      .value("ENSEMBLE_NUMBER", SegyFile::Trace::Header::Attribute::ENSEMBLE_NUMBER)
       .export_values();
 }
 
