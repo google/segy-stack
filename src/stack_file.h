@@ -148,7 +148,7 @@ class StackFile {
     bool is2D() const { return is_2d_; }
     void setIs2D(bool value) { is_2d_ = value; }
 
-    bool getOutputStatsFile() const { return output_stats_file_; }
+    const std::string& getOutputStatsFile() const { return output_stats_file_; }
     void setOutputStatsFile(const std::string value) { output_stats_file_ = value; }
 
    private:
