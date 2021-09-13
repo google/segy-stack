@@ -135,6 +135,7 @@ std::ostream& operator<<(std::ostream& os, const StackFile::SegyOptions& opts) {
   os << "Shotpoint num offset: "
      << opts.getTraceHeaderOffset(Attribute::SHOTPOINT_NUMBER) << std::endl;
   os << "Is 2D: " << opts.is2D() << std::endl;
+  os << "Output Statistics file: " << opts.getOutputStatsFile() << std::endl;
   return os;
 }
 
@@ -1039,6 +1040,10 @@ void StackFile::createFromSegy(const std::string& filename,
 
   grid_map_.reset(new GridMap(*grid_data));
 
+  if (!opts.getOutputStatsFile().empty()) {
+    stats_.reset(new Statistics(opts.getOutputStatsFile()));
+  }
+
   while (segyfile.read(trace)) {
     CHECK_EQ(grid_data->num_samples(), trace.samples().size());
     const SegyFile::Trace::Header& header = trace.header();
@@ -1085,6 +1090,9 @@ void StackFile::createFromSegy(const std::string& filename,
 
     inline_bin_file.write(reinterpret_cast<char*>(trace.samples().data()),
                           trace.samples().size() * sizeof(float));
+    if (stats_) {
+      stats_->processInlineTrace(trace.samples().data(), trace.samples().size());
+    }
 
     ++num_traces_read;
     LOG_EVERY_N(INFO, 100000)
@@ -1399,6 +1407,9 @@ void StackFile::writeCrosslineSlices() {
       const float* trace = grid_map_->getTrace(il, xl);
       if (trace) {
         xl_data_fp.write(reinterpret_cast<const char*>(trace), num_trace_bytes);
+        if (stats_) {
+          stats_->processCrosslineTrace(trace, grid_->numSamples());
+        }
       }
     }
   }
@@ -1463,6 +1474,9 @@ void StackFile::writeDepthSlices() {
       char* ds_addr = data_ds_file_->char_addr() + iz * depth_slice_bytes +
                       il_bytes_per_ds_written;
       ::memcpy(ds_addr, &buffer_ix_trc[0], trc_num * sizeof(float));
+      if (stats_) {
+        stats_->processDepthTrace(buffer_ix_trc.data(), trc_num);
+      }
     }
 
     il_bytes_per_ds_written += trc_num * sizeof(float);

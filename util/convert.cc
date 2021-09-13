@@ -25,6 +25,7 @@
 
 ABSL_FLAG(std::string, input_file, "", "Input SEGY file");
 ABSL_FLAG(std::string, output_file, "", "Output Stack file");
+ABSL_FLAG(std::string, output_stats_file, "", "Output Statistics file");
 ABSL_FLAG(int, il_offset, 189, "Inline number byte offset");
 ABSL_FLAG(int, xl_offset, 193, "Crossline number byte offset");
 ABSL_FLAG(int, x_coord_offset, 181, "X coordinate byte offset");
@@ -109,6 +110,10 @@ int main(int argc, char* argv[]) {
 
   if (FLAGS_is_2d.Get()) {
     opts.setIs2D(FLAGS_is_2d.Get());
+  }
+
+  if (FLAGS_output_stats_file.IsSpecifiedOnCommandLine()) {
+    opts.setOutputStatsFile(FLAGS_output_stats_file.Get());
   }
 
   std::cout << std::endl

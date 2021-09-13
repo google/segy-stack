@@ -25,6 +25,7 @@
 #include "mmap_file.h"
 #include "segy_file.h"
 #include "stack_types.pb.h"
+#include "statistics.h"
 
 namespace segystack {
 
@@ -147,10 +148,14 @@ class StackFile {
     bool is2D() const { return is_2d_; }
     void setIs2D(bool value) { is_2d_ = value; }
 
+    bool getOutputStatsFile() const { return output_stats_file_; }
+    void setOutputStatsFile(const std::string value) { output_stats_file_ = value; }
+
    private:
     UTMZone utm_zone_;
     std::map<SegyFile::Trace::Header::Attribute, int> offsets_;
     bool is_2d_;
+    std::string output_stats_file_;
   };
 
   explicit StackFile(const std::string& filename);
@@ -235,6 +240,7 @@ class StackFile {
   std::unique_ptr<GridMap> grid_map_;
   std::unique_ptr<const Grid> grid_;
   std::unique_ptr<MmapFile> data_file_, data_xl_file_, data_ds_file_;
+  std::unique_ptr<Statistics> stats_;
 };
 
 std::ostream& operator<<(std::ostream& os, const StackFile::Grid& grid);
