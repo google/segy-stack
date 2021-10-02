@@ -298,6 +298,8 @@ void init_stack_file(py::module* m) {
            &StackFile::SegyOptions::getTraceHeaderOffset);
   opts.def("set_is_2D", &StackFile::SegyOptions::setIs2D);
   opts.def("is_2D", &StackFile::SegyOptions::is2D);
+  opts.def("set_output_stats_file", &StackFile::SegyOptions::setOutputStatsFile);
+  opts.def("output_stats_file", &StackFile::SegyOptions::getOutputStatsFile);
   opts.def("__repr__", [](const StackFile::SegyOptions& opts) {
     std::ostringstream ostr;
     ostr << opts;
